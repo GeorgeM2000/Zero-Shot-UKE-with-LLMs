@@ -64,6 +64,42 @@ def clean_text(text="", database="Inspec"):
     return text_new
 
 
+
+def get_MDPI_data(parent_path, target_folders, article_data_files):
+    data = {}
+    titles = {}
+    labels = {}
+
+    data_file_index = 0
+    doc_index = 0
+
+    for folder in target_folders:
+        file_path = os.path.join(parent_path, folder, article_data_files[data_file_index])
+
+        with open(file_path, "r", encoding='utf-8') as file:
+            json_data = json.load(file)
+
+        dataset_titles = json_data.get("Titles", [])
+        dataset_articles = json_data.get("Articles", [])
+        dataset_keywords = json_data.get("Keywords", [])
+
+        for title, article, keywords in zip(
+                dataset_titles,
+                dataset_articles,
+                dataset_keywords):
+
+            data[doc_index] = article
+            titles[doc_index] = title
+            labels[doc_index] = keywords
+
+            doc_index += 1
+
+        data_file_index += 1
+
+    return data,labels,titles
+
+
+
 def get_long_data(file_path="data/nus/nus_test.json"):
     data = {}
     titles = {}
@@ -233,8 +269,28 @@ if __name__ == '__main__':
     data_path = args.data_path # data/
     MAX_LEN = int(args.max_len) # The maximum token length each document will have
 
+    mdpi_parent_path = "../MDPI Articles/"
+
+    mdpi_target_folders = [
+                           "MAKE 1996-2024/", 
+                           "Applied Sci 1996-2024/", 
+                           "Algo 1996-2024/", 
+                           "IJMS 1996-2024/", 
+                           "Sensors 1996-2024/", 
+                           "Sustainability 1996-2024/"
+                           ]
+    
+    mdpi_article_data_files = [  'MDPI_MAKE_Augmented_Content.json', 
+                                 'MDPI_Applied_Sci_Augmented_Content.json',
+                                 'MDPI_Algo_Augmented_Content.json',
+                                 'MDPI_ijms_Augmented_Content.json',
+                                 'MDPI_Sensors_Augmented_Content.json',
+                                 'MDPI_sustainability_Augmented_Content.json'
+                              ]
+
     dataset_list = [#'Inspec', 
-                    #'SemEval2017', 
+                    #'SemEval2017',
+                    'MDPI', 
                     'SemEval2010', 
                     'DUC2001', 
                     'nus', 
@@ -264,6 +320,9 @@ if __name__ == '__main__':
             
         elif dataset_name == "Inspec":
             data, references = get_inspec_data(dataset_dir)
+
+        elif dataset_name == "MDPI":
+            data, references, titles_dict = get_MDPI_data(mdpi_parent_path, mdpi_target_folders, mdpi_article_data_files)
 
 
         docs = []
