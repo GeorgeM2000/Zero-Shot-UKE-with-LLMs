@@ -5,41 +5,32 @@ from sklearn.cluster import AgglomerativeClustering
 
 
 
-# This function calculates how many words and non-words exist in the keywords list
-def process_keywords(keywords_list, output_file=None):
-    word_counts = []  
+# This function calculates how many words and non-words exist in the extracted keyphrases per dataset
+# Additionally, it calculates the average number of words per extracted keyphrase for the entire dataset
+def process_keyphrases(perdoc_keyphrases):
+    perdoc_avg_no_words = []
     total_word_count = 0
     total_non_word_count = 0
 
-    for keywords in keywords_list: # keywords_list is a 2D list. Each inner list contains keywords: [keyword 1, ..., keyword N]
-        keywords_word_count = 0  
-        keywords_non_word_count = 0
+    for keyphrases_list in perdoc_keyphrases: # perdoc_keyphrases is a 2D list. Each inner list contains keyphrases for one document: [keyphrase 1, ..., keyphrase N]
 
-        for keyword in keywords: # For each keyword in [keyword 1, ..., keyword N]
+        total_no_words_per_doc = 0
 
-            # Split on whitespace or dash but preserve valid words
-            words = [word for part in keyword.split('-') for word in part.split()]
+        for keyphrase in keyphrases_list:
+
+            tokens = [token for token in keyphrase.split()]
             
-            for word in words:
-                if word.isalpha():  # Check if it's a valid word
-                    keywords_word_count += 1
+            for t in tokens:
+                if t.isalpha():  # Check if it's a valid word
+                    total_no_words_per_doc += 1
                     total_word_count += 1
                 else:
-                    keywords_non_word_count += 1
                     total_non_word_count += 1
 
-        word_counts.append(keywords_word_count)
+        perdoc_avg_no_words.append(total_no_words_per_doc / len(keyphrases_list))
     
-    avg_word_count = 0
-    for count in word_counts:
-        avg_word_count += count
+    return total_word_count, total_non_word_count, np.mean(perdoc_avg_no_words)
 
-    if output_file:
-        with open(output_file, 'w', encoding='utf-8') as f:
-            for count in word_counts:
-                f.write(str(count) + '\n')
-    
-    return total_word_count, total_non_word_count, avg_word_count / len(word_counts)
 
 
 
@@ -274,9 +265,6 @@ def cluster_keywords(keywords, stemmed_keywords, similarity_threshold=0.25):
             centroids.append(keywords[best_idx])
 
     return centroids
-
-
-
 
 
 

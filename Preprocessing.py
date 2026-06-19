@@ -227,7 +227,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', type=str, default='data', help="Directory path of test datasets")
-    parser.add_argument('--max_len', type=str, default='512', help="Max length of input document") # Alternatives: 1024 2048
+    parser.add_argument('--max_len', type=str, default='512', help="Maximum length of input document") # Alternatives: 1024 2048
     args = parser.parse_args()
 
     data_path = args.data_path # data/
@@ -246,16 +246,22 @@ if __name__ == '__main__':
 
         if dataset_name =="SemEval2017":
             data, references = get_semeval2017_data(dataset_dir + "/docsutf8", dataset_dir + "/keys")
+
         elif dataset_name == "DUC2001":
             data, references, titles_dict = get_duc2001_data(dataset_dir)
+
         elif dataset_name == "nus" :
             data, references, titles_dict = get_long_data(dataset_dir + "/nus_test.json")
+
         elif dataset_name == "krapivin":
             data, references, titles_dict = get_long_data(dataset_dir + "/krapivin_test.json")
+
         elif dataset_name == "kp20k":
             data, references, titles_dict = get_short_data(dataset_dir + "/kp20k_valid200_test.json")
+
         elif dataset_name == "SemEval2010":
             data, references, titles_dict = get_short_data(dataset_dir + "/semeval_test.json")
+            
         elif dataset_name == "Inspec":
             data, references = get_inspec_data(dataset_dir)
 
@@ -270,10 +276,14 @@ if __name__ == '__main__':
         for key, doc in data.items(): # for each document in data
 
             # Get stemmed labels and document segments
-            labels.append([ref.replace(" \n", "") for ref in references[key]]) # labels are the true keywords
+
+            # labels are the true keywords
+            # ref represents the keyword or the keyphrase
+            # references[key] returns a list of keywords/keyphrases for a single document given the key
+            labels.append([ref.replace(" \n", "") for ref in references[key]]) 
 
             labels_s = [] # labels_s are the true stemmed keywords 
-            for l in references[key]:
+            for l in references[key]: # l represents the keyword or the keyphrase
                 tokens = l.split()
                 labels_s.append(' '.join(porter.stem(t) for t in tokens))
 

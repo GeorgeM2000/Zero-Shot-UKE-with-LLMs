@@ -33,6 +33,11 @@ def print_PRF(P, R, F1, N):
     return 0
 
 
+
+
+
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -129,7 +134,7 @@ if __name__ == '__main__':
             # Remove duplicates. Consider all unique keyphrases/keywords
             pred_set = []
             for pred in pred_list:
-                if pred in pred_set or pred =='':
+                if pred in pred_set or pred == '':
                     continue
                 else:
                     pred_set.append(pred)
