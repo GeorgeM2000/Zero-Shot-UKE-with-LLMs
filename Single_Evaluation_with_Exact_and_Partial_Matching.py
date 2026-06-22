@@ -57,6 +57,7 @@ if __name__ == '__main__':
 
     dataset_list = [#'Inspec', 
                     #'SemEval2017', 
+                    'MDPI',
                     'SemEval2010', 
                     'DUC2001', 
                     'nus', 

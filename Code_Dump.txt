@@ -1,0 +1,162 @@
+def get_top_centroids(extracted_keywords):
+    centroid_keywords = []
+
+    for i, ekws in enumerate(extracted_keywords):
+        # Separate scores and keywords
+        scores, keywords = zip(*[(score, keyword) for score, keyword in ekws])
+
+        # Cluster and sort by score descending
+        centroids = sorted(cluster_keywords(list(keywords), list(scores), similarity_threshold=0.25), key=lambda x: x[1], reverse=True)
+
+        # Apply knee method on scores
+        knee_indices = find_knee_with_kneedle([score for _, score in centroids])
+
+        # Build best centroids string
+        centroid_keywords.append([centroids[idx][0] for idx in knee_indices])
+    
+    return centroid_keywords, len(knee_indices)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def cluster_keywords(keywords, stemmed_keywords, scores, similarity_threshold=0.25):
+    """
+    Cluster keywords using Hierarchical Agglomerative Clustering (average linkage)
+    with word overlap similarity, and return centroid keywords with their scores.
+
+    Args:
+        keywords (list of str): Candidate keywords.
+        scores (list of float): Scores corresponding to each keyword.
+        similarity_threshold (float): Minimum overlap similarity (default=0.25).
+
+    Returns:
+        list of (keyword, score): Cluster centroids and their scores.
+    """
+
+    # Build similarity matrix
+    n = len(keywords)
+    sim_matrix = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i+1, n):
+            sim = keyword_similarity(stemmed_keywords[i], stemmed_keywords[j])
+            sim_matrix[i, j] = sim
+            sim_matrix[j, i] = sim
+
+    # Convert to distance matrix
+    dist_matrix = 1 - sim_matrix
+
+    # Clustering with average linkage
+    clustering = AgglomerativeClustering(
+        metric="precomputed",
+        linkage="average",
+        distance_threshold=1 - similarity_threshold,
+        compute_full_tree=True,
+        n_clusters=None # There is no need to define the number of clusters
+    )
+    labels = clustering.fit_predict(dist_matrix)
+
+    # Find cluster centroids
+    centroids = []
+    for cluster_id in set(labels): # Take all the unique labels, e.g., 0, 1, 2, 3, ...
+        indices = [idx for idx, lbl in enumerate(labels) if lbl == cluster_id] # Organize the keyword indices based on their label
+        if len(indices) == 1:
+            # Single keyword cluster
+            idx = indices[0]
+            centroids.append((keywords[idx], scores[idx]))
+        else:
+            # Compute centroid: max avg similarity within cluster
+            best_idx, best_sim = None, -1
+            for idx in indices:
+                sims = [sim_matrix[idx, j] for j in indices if j != idx]
+                avg_sim = np.mean(sims) if sims else 0
+                if avg_sim > best_sim:
+                    best_sim = avg_sim
+                    best_idx = idx
+            centroids.append((keywords[best_idx], scores[best_idx]))
+
+    return centroids
+
+
+
+
+
+
+
+
+
+
+def find_knee_with_kneedle(scores):
+    """
+    Find the knee (elbow) in a list of sorted scores (descending) using Kneedle.
+    
+    Args:
+        scores (list or np.array): Sorted list of scores (high to low).
+    
+    Returns:
+        list: Indices of keywords to keep (up to and including knee).
+    """
+    scores = np.array(scores)
+    x = np.arange(len(scores))
+
+    # Kneedle works best if curve is convex and decreasing
+    kneedle = KneeLocator(x, scores, curve="convex", direction="decreasing")
+    knee = kneedle.knee
+
+    if knee is None:
+        # If no knee detected, keep all
+        return list(range(len(scores)))
+    else:
+        return list(range(knee + 1))
+    
+
+
+
+
+def get_MDPI_data(file_path="data/MDPI/MDPI_Articles.json"):
+    data = {}
+    titles = {}
+    labels = {}
+
+    data_file_index = 0
+    doc_index = 0
+
+    for folder in target_folders:
+        file_path = os.path.join(parent_path, folder, article_data_files[data_file_index])
+
+        with open(file_path, "r", encoding='utf-8') as file:
+            json_data = json.load(file)
+
+        dataset_titles = json_data.get("Titles", [])
+        dataset_articles = json_data.get("Articles", [])
+        dataset_keywords = json_data.get("Keywords", [])
+
+        for title, article, keywords in zip(
+                dataset_titles,
+                dataset_articles,
+                dataset_keywords):
+
+            data[doc_index] = article
+            titles[doc_index] = title
+            labels[doc_index] = keywords
+
+            doc_index += 1
+
+        data_file_index += 1
+
+    return data,labels,titles

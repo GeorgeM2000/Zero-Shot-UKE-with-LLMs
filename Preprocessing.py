@@ -3,8 +3,10 @@ import codecs
 import json
 import os
 import nltk
-from tqdm import tqdm
 import argparse
+
+from tqdm import tqdm
+
 
 
 def clean_text(text="", database="Inspec"):
@@ -65,36 +67,29 @@ def clean_text(text="", database="Inspec"):
 
 
 
-def get_MDPI_data(parent_path, target_folders, article_data_files):
+def get_MDPI_data(file_path="data/MDPI/MDPI_Articles.json"):
     data = {}
     titles = {}
     labels = {}
+    with codecs.open(file_path, 'r', 'utf-8') as f:
+        json_text = f.readlines()
+        for i, line in tqdm(enumerate(json_text), desc="Loading Doc ..."):
+            try:
+                jsonl = json.loads(line)
+                keywords = jsonl['keywords'].lower().split(";")
+                title = jsonl['title'] 
+                fulltxt = jsonl['fulltext']
+                
+                #doc = ' '.join([title, abstract, fulltxt])
+                doc = title + ". " + fulltxt
+                doc = doc.replace('\n', ' ')
 
-    data_file_index = 0
-    doc_index = 0
+                data[jsonl['name']] = doc
+                titles[jsonl['name']] = title
+                labels[jsonl['name']] = keywords
 
-    for folder in target_folders:
-        file_path = os.path.join(parent_path, folder, article_data_files[data_file_index])
-
-        with open(file_path, "r", encoding='utf-8') as file:
-            json_data = json.load(file)
-
-        dataset_titles = json_data.get("Titles", [])
-        dataset_articles = json_data.get("Articles", [])
-        dataset_keywords = json_data.get("Keywords", [])
-
-        for title, article, keywords in zip(
-                dataset_titles,
-                dataset_articles,
-                dataset_keywords):
-
-            data[doc_index] = article
-            titles[doc_index] = title
-            labels[doc_index] = keywords
-
-            doc_index += 1
-
-        data_file_index += 1
+            except:
+                raise ValueError
 
     return data,labels,titles
 
