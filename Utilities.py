@@ -2,6 +2,7 @@ import numpy as np
 
 from kneed import KneeLocator
 from sklearn.cluster import AgglomerativeClustering
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 
@@ -106,106 +107,11 @@ def count_word_overlap_matches(candidate_keywords, candidate_keywords_orig, refe
 
 
 
-def find_knee_with_kneedle(scores):
-    """
-    Find the knee (elbow) in a list of sorted scores (descending) using Kneedle.
-    
-    Args:
-        scores (list or np.array): Sorted list of scores (high to low).
-    
-    Returns:
-        list: Indices of keywords to keep (up to and including knee).
-    """
-    scores = np.array(scores)
-    x = np.arange(len(scores))
-
-    # Kneedle works best if curve is convex and decreasing
-    kneedle = KneeLocator(x, scores, curve="convex", direction="decreasing")
-    knee = kneedle.knee
-
-    if knee is None:
-        # If no knee detected, keep all
-        return list(range(len(scores)))
-    else:
-        return list(range(knee + 1))
-    
-
-
-
-
 # Similarity function: overlap / max(lenA, lenB)
 def keyword_similarity(set_a, set_b): # Based on exact similarity 
     overlap = len(set(set_a) & set(set_b))
     denom = max(len(set_a), len(set_b))
     return overlap / denom if denom > 0 else 0.0
-
-
-
-
-
-
-
-def cluster_keywords(keywords, stemmed_keywords, scores, similarity_threshold=0.25):
-    """
-    Cluster keywords using Hierarchical Agglomerative Clustering (average linkage)
-    with word overlap similarity, and return centroid keywords with their scores.
-
-    Args:
-        keywords (list of str): Candidate keywords.
-        scores (list of float): Scores corresponding to each keyword.
-        similarity_threshold (float): Minimum overlap similarity (default=0.25).
-
-    Returns:
-        list of (keyword, score): Cluster centroids and their scores.
-    """
-
-    # Build similarity matrix
-    n = len(keywords)
-    sim_matrix = np.zeros((n, n))
-    for i in range(n):
-        for j in range(i+1, n):
-            sim = keyword_similarity(stemmed_keywords[i], stemmed_keywords[j])
-            sim_matrix[i, j] = sim
-            sim_matrix[j, i] = sim
-
-    # Convert to distance matrix
-    dist_matrix = 1 - sim_matrix
-
-    # Clustering with average linkage
-    clustering = AgglomerativeClustering(
-        metric="precomputed",
-        linkage="average",
-        distance_threshold=1 - similarity_threshold,
-        compute_full_tree=True,
-        n_clusters=None # There is no need to define the number of clusters
-    )
-    labels = clustering.fit_predict(dist_matrix)
-
-    # Find cluster centroids
-    centroids = []
-    for cluster_id in set(labels): # Take all the unique labels, e.g., 0, 1, 2, 3, ...
-        indices = [idx for idx, lbl in enumerate(labels) if lbl == cluster_id] # Organize the keyword indices based on their label
-        if len(indices) == 1:
-            # Single keyword cluster
-            idx = indices[0]
-            centroids.append((keywords[idx], scores[idx]))
-        else:
-            # Compute centroid: max avg similarity within cluster
-            best_idx, best_sim = None, -1
-            for idx in indices:
-                sims = [sim_matrix[idx, j] for j in indices if j != idx]
-                avg_sim = np.mean(sims) if sims else 0
-                if avg_sim > best_sim:
-                    best_sim = avg_sim
-                    best_idx = idx
-            centroids.append((keywords[best_idx], scores[best_idx]))
-
-    return centroids
-
-
-
-
-
 
 
 
@@ -269,21 +175,80 @@ def cluster_keywords(keywords, stemmed_keywords, similarity_threshold=0.25):
 
 
 
+def cluster_keywords_embeddings(keywords, embeddings, similarity_threshold=0.8):
+    """
+    Cluster keywords using Hierarchical Agglomerative Clustering (average linkage)
+    based on embedding cosine similarity, and return representative keywords.
 
-def get_top_centroids(extracted_keywords):
-    centroid_keywords = []
+    Args:
+        keywords (list of str): Candidate keywords/keyphrases.
+        embeddings (np.ndarray): Corresponding embedding vectors (n x d).
+        similarity_threshold (float): Minimum cosine similarity for clustering.
 
-    for i, ekws in enumerate(extracted_keywords):
-        # Separate scores and keywords
-        scores, keywords = zip(*[(score, keyword) for score, keyword in ekws])
+    Returns:
+        list of str: Cluster representative keywords (centroids).
+    """
 
-        # Cluster and sort by score descending
-        centroids = sorted(cluster_keywords(list(keywords), list(scores), similarity_threshold=0.25), key=lambda x: x[1], reverse=True)
+    keywords = list(keywords)
+    embeddings = np.array(embeddings)
 
-        # Apply knee method on scores
-        knee_indices = find_knee_with_kneedle([score for _, score in centroids])
+    n = len(keywords)
 
-        # Build best centroids string
-        centroid_keywords.append([centroids[idx][0] for idx in knee_indices])
-    
-    return centroid_keywords, len(knee_indices)
+    # Edge case: empty or single element
+    if n == 0:
+        return []
+    if n == 1:
+        return keywords
+
+    # -----------------------------
+    # 1. Compute cosine similarity matrix
+    # -----------------------------
+    sim_matrix = cosine_similarity(embeddings)
+
+    # -----------------------------
+    # 2. Convert similarity -> distance
+    # -----------------------------
+    dist_matrix = 1 - sim_matrix
+
+    # -----------------------------
+    # 3. HAC clustering
+    # -----------------------------
+    clustering = AgglomerativeClustering(
+        metric="precomputed",
+        linkage="average",
+        distance_threshold=1 - similarity_threshold,
+        n_clusters=None,
+        compute_full_tree=True
+    )
+
+    labels = clustering.fit_predict(dist_matrix)
+
+    # -----------------------------
+    # 4. Select cluster representatives
+    # -----------------------------
+    centroids = []
+
+    for cluster_id in set(labels):
+        indices = [i for i, lbl in enumerate(labels) if lbl == cluster_id]
+
+        if len(indices) == 1:
+            centroids.append(keywords[indices[0]])
+        else:
+            best_idx, best_score = None, -1
+
+            for i in indices:
+                sims = [sim_matrix[i, j] for j in indices if j != i]
+                avg_sim = np.mean(sims) if sims else 0
+
+                if avg_sim > best_score:
+                    best_score = avg_sim
+                    best_idx = i
+
+            centroids.append(keywords[best_idx])
+
+    return centroids
+
+
+
+
+

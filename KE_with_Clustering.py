@@ -11,9 +11,10 @@ import numpy as np
 
 from tqdm import tqdm
 from RAKE import Rake, Metric
-from Utilities import process_keyphrases, cluster_keywords
+from Utilities import process_keyphrases, cluster_keywords, cluster_keywords_embeddings
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
+from sentence_transformers import SentenceTransformer  
 
 
 
@@ -94,6 +95,9 @@ if __name__ == '__main__':
     elif ke_method == 'MPRank': 
         stoplist = list(string.punctuation) + list(pke.lang.stopwords.get('en'))
         
+    # Load only once
+    if sim_technique == 'Eb': 
+        embedding_model = SentenceTransformer('all-mpnet-base-v2')
 
 
     # Create a timestamp, e.g 2026-05-03_07-29-30
@@ -167,10 +171,27 @@ if __name__ == '__main__':
      
             # ===================================================================================
 
+        
             # =============================== Clustering Process ========================================
-            keyphrases = cluster_keywords(keyphrases, 
-                                          [' '.join(PorterStemmer().stem(token.lower()) for token in word_tokenize(kw)) for kw in keyphrases],
-                                          sim_threshold)
+            if sim_technique == 'Eb': 
+                # Generate an embedding for each keyword/keyphrase 
+                keyphrase_embeddings = embedding_model.encode(keyphrases, 
+                                                              convert_to_numpy=True, 
+                                                              show_progress_bar=False) 
+                
+                # Optional: convert to a list of embeddings instead of a NumPy array 
+                keyphrase_embeddings = list(keyphrase_embeddings)
+
+
+                keyphrases = cluster_keywords_embeddings(
+                    keyphrases,
+                    keyphrase_embeddings,
+                    sim_threshold
+                )
+            else:
+                keyphrases = cluster_keywords(keyphrases, 
+                                            [' '.join(PorterStemmer().stem(token.lower()) for token in word_tokenize(kw)) for kw in keyphrases],
+                                            sim_threshold)
 
             # ===========================================================================================
 
@@ -214,7 +235,6 @@ if __name__ == '__main__':
         with open(os.path.join(data_path, 
                                f'{dataset_name}_MAX{datasets_max_len}_{ke_method}_HAC_{sim_technique}_{sim_threshold*100}.jsonl'), 
                                "w", encoding='utf-8') as f:
-            
             
             for json_data in jsonl_lines:
                 f.write(json.dumps(json_data, ensure_ascii=False) + '\n')

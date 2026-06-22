@@ -140,18 +140,24 @@ if __name__ == '__main__':
 
     task_instruction = f"""
 
-        You are a specialized keyword extraction assistant. Generate, refine, and synthesize keywords and keyphrases for a single document.
-            Input
-                • One document containing a title and a list of keywords.
-            Output
-                • Extract {T} keyphrases from the document. The answer should be listed after 'Keyphrases: ' and separated by semicolons (;). 'Keyphrases: keyphrase 1 ; keyphrase 2 ; ... ; keyphrase N'
-            Rules
-                • Use the title as the primary relevance anchor.
-                • Select semantically relevant keywords.
-                • Clean, normalize, merge, or reorder keywords when needed.
-                • Modify, combine, or generate new keywords from the title and existing keywords.
-                • Include important concepts clearly implied by the title, even if absent from the original keywords.
-                • Prefer concise, informative, and representative keywords.
+        You are a keyphrase synthesis assistant. Your task is to produce a refined list of keyphrases for a given document.
+
+        Input
+            • Title: the document's title.
+            • Keywords: an initial list of keywords separated by semicolons.
+
+        Task
+            • Produce exactly {T} keyphrases by refining, combining, and expanding the given keywords.
+
+        Rules
+            • Use the title and existing keywords as relevance anchors.
+            • Keep, clean, or normalize useful keywords from the input.
+            • Remove irrelevant entries.
+            • Add keyphrases for important concepts implied by the title or the existing keywords.
+            • Prefer concise, informative, and representative keyphrases.
+
+        Output
+            • Format: Keyphrases: keyphrase 1 ; keyphrase 2 ; ... ; keyphrase {T}
 
     """
 
@@ -205,7 +211,8 @@ if __name__ == '__main__':
         
         for j_data in tqdm(data_list): # For JSON data in data_list (for each document)
 
-            doc = j_data['doc'] # Take the document (size of 512 tokens) labeled as 'doc'
+            doc = f"Title: {j_data['doc_title']}. Keywords: {';'.join(j_data['doc_keyphrases'])}"
+
             prompt = prompt_template.format(task_instruction, doc) # Use the prompt template to insert the document into the prompt and the task instruction
             
 
