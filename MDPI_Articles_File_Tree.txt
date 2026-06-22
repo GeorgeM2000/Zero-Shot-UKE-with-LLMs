@@ -3,29 +3,36 @@
 │   ├── Downloaded_Articles.txt
 │   ├── MDPI_Algo_Abstracts.json
 │   ├── MDPI_Algo_Augmented_Content.json
+
 ├── Applied Sci 1996-2024
 │   ├── Downloaded_Articles.txt
 │   ├── MDPI_Applied_Sci_Abstracts.json
 │   ├── MDPI_Applied_Sci_Augmented_Content.json
+
 ├── IJMS 1996-2024
 │   ├── Downloaded_Articles.txt
 │   ├── MDPI_ijms_Abstracts.json
 │   ├── MDPI_ijms_Augmented_Content.json
+
 ├── Installation_Results.txt
+
 ├── MAKE 1996-2024
 │   ├── Downloaded_Articles.txt
 │   ├── MDPI_MAKE_Abstracts.json
 │   ├── MDPI_MAKE_Augmented_Content.json
+
 ├── MDPI_Algo_200_Articles_Page1_1996-2024.ris
 ├── MDPI_Applied_Sci_200_Articles_Page1_1996-2024.ris
 ├── MDPI_ijms_200_Articles_Page1_1996-2024.ris
 ├── MDPI_MAKE_200_Articles_Page1_1996-2024.ris
 ├── MDPI_sensors_200_Articles_Page1_1996-2024.ris
 ├── MDPI_sustainability_200_Articles_Page1_1996-2024.ris
+
 ├── Sensors 1996-2024
 │   ├── Downloaded_Articles.txt
 │   ├── MDPI_Sensors_Abstracts.json
 │   ├── MDPI_Sensors_Augmented_Content.json
+
 └── Sustainability 1996-2024
     ├── Downloaded_Articles.txt
     ├── MDPI_sustainability_Abstracts.json
