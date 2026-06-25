@@ -128,7 +128,7 @@ def get_long_data(file_path="data/nus/nus_test.json"):
                 
                 #doc = ' '.join([title, abstract, fulltxt])
                 doc = title + ". " + abstract + ". " + fulltxt
-                doc = re.sub('\. ', ' . ', doc)
+                doc = re.sub(r'\. ', ' . ', doc)
                 doc = re.sub(', ' , ' , ', doc)
 
                 doc = clean_text(doc, database="nus")
@@ -157,7 +157,7 @@ def get_short_data(file_path="data/kp20k/kp20k_valid2k_test.json"):
                 title = jsonl['title']
                 abstract = jsonl['abstract']
                 doc = title + ". " + abstract
-                doc = re.sub('\. ', ' . ', doc)
+                doc = re.sub(r'\. ', ' . ', doc)
                 doc = re.sub(', ', ' , ', doc)
 
                 doc = clean_text(doc, database="kp20k")

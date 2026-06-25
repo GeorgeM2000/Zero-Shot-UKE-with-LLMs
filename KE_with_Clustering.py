@@ -2,6 +2,7 @@ import os
 import json
 import datetime
 import argparse
+import pytextrank
 import pke # Use this library when you want to run the KE methods in pke
 import spacy
 import string
@@ -84,15 +85,19 @@ if __name__ == '__main__':
     ke_method = args.ke_method # The keyword/keyphrase extraction method with HAC
     data_path = args.data_path
     datasets_max_len = int(args.datasets_max_len)
+    spacy_model_path = "../en_core_web_sm-3.8.0-py3-none-any.whl_FILES/en_core_web_sm/en_core_web_sm-3.8.0"
+
 
     if ke_method == 'PositionRank':
-        positionrank = spacy.load("../en_core_web_sm-3.8.0-py3-none-any/en_core_web_sm/en_core_web_sm-3.8.0")
+        positionrank = spacy.load(spacy_model_path)
         positionrank.add_pipe("positionrank")
 
     elif ke_method == 'KPMiner':
+        kpminer_spacy = spacy.load(spacy_model_path)
         kpminer_weights_file = r'/home/georgematlis/Keyword_Extraction/lib/python3.12/site-packages/pke/models/df-semeval2010.tsv.gz' #r'../pke/models/df-semeval2010.tsv.gz'
 
     elif ke_method == 'MPRank': 
+        mprank_spacy = spacy.load(spacy_model_path)
         stoplist = list(string.punctuation) + list(pke.lang.stopwords.get('en'))
         
     # Load only once
@@ -158,7 +163,7 @@ if __name__ == '__main__':
             
             elif ke_method == 'KPMiner':
                 kpminer_extractor = pke.unsupervised.KPMiner()
-                kpminer_extractor.load_document(input = doc, language = 'en')
+                kpminer_extractor.load_document(input = doc, language = 'en', spacy_model=spacy_model_path)
                 kpminer_extractor.candidate_selection(lasf = 5, cutoff = 200)
                 df = pke.load_document_frequency_file(input_file = kpminer_weights_file)
                 kpminer_extractor.candidate_weighting(df = df, alpha = 2.3, sigma = 3.0)
@@ -166,7 +171,7 @@ if __name__ == '__main__':
 
             else:
                 mprank_extractor = pke.unsupervised.MultipartiteRank()
-                mprank_extractor.load_document(input = doc, stoplist = stoplist, language = 'en')
+                mprank_extractor.load_document(input = doc, stoplist = stoplist, language = 'en', spacy_model=spacy_model_path)
                 mprank_extractor.candidate_selection(pos = {'NOUN', 'PROPN', 'ADJ'})
                 mprank_extractor.candidate_weighting(alpha = 1.1, threshold = 0.74, method = 'average')
                 keyphrases = [kw for kw,_ in mprank_extractor.get_all_sorted()]
