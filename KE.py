@@ -18,48 +18,48 @@ from Utilities import process_keyphrases
 Add the following function to the base.py file in the pke package. 
 
 def get_all_sorted(self, redundancy_removal=False, stemming=False):
-        \"""Returns all candidates sorted by descending weight.
+    \"""Returns all candidates sorted by descending weight.
 
-        Args:
-            redundancy_removal (bool): whether redundant keyphrases are
-                filtered out from the results, defaults to False.
-            stemming (bool): whether to extract stems or surface forms
-                (lowercased, first occurring form of candidate), defaults to
-                False.
-        \"""
+    Args:
+        redundancy_removal (bool): whether redundant keyphrases are
+            filtered out from the results, defaults to False.
+        stemming (bool): whether to extract stems or surface forms
+            (lowercased, first occurring form of candidate), defaults to
+            False.
+    \"""
 
-        # sort candidates by descending weight
-        best = sorted(self.weights, key=self.weights.get, reverse=True)
+    # sort candidates by descending weight
+    best = sorted(self.weights, key=self.weights.get, reverse=True)
 
-        # remove redundant candidates
-        if redundancy_removal:
+    # remove redundant candidates
+    if redundancy_removal:
 
-            # initialize a new container for non redundant candidates
-            non_redundant_best = []
+        # initialize a new container for non redundant candidates
+        non_redundant_best = []
 
-            # loop through the best candidates
-            for candidate in best:
+        # loop through the best candidates
+        for candidate in best:
 
-                # test whether candidate is redundant
-                if self.is_redundant(candidate, non_redundant_best):
-                    continue
+            # test whether candidate is redundant
+            if self.is_redundant(candidate, non_redundant_best):
+                continue
 
-                # add the candidate otherwise
-                non_redundant_best.append(candidate)
+            # add the candidate otherwise
+            non_redundant_best.append(candidate)
 
-            # copy non redundant candidates in best container
-            best = non_redundant_best
+        # copy non redundant candidates in best container
+        best = non_redundant_best
 
-        # get the list of all candidates as (lexical form, weight) tuples
-        all_candidates = [(u, self.weights[u]) for u in best]
+    # get the list of all candidates as (lexical form, weight) tuples
+    all_candidates = [(u, self.weights[u]) for u in best]
 
-        # replace with surface forms if no stemming
-        if not stemming:
-            all_candidates = [(' '.join(self.candidates[u].surface_forms[0]).lower(),
-                            self.weights[u]) for u in best]
+    # replace with surface forms if no stemming
+    if not stemming:
+        all_candidates = [(' '.join(self.candidates[u].surface_forms[0]).lower(),
+                        self.weights[u]) for u in best]
 
-        # return the sorted list of all candidates
-        return all_candidates
+    # return the sorted list of all candidates
+    return all_candidates
 
 """
 
@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     ke_method = args.ke_method
     data_path = args.data_path
-    T = int(args.T) # Set globally for KE methods that require it. Some KE methods extract only T keyphrases/keywords. Others output all candidates with their scores
+    T = int(args.T) # Set for KE methods that require it. Some KE methods extract only T keyphrases/keywords. Others output all candidates with their scores
     datasets_max_len = int(args.datasets_max_len)
 
     if ke_method == 'PositionRank':
@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
     result_path = os.path.join('results', 
                                f"{ke_method}/{ke_method}" if ke_method != 'YAKE' else f"{ke_method}/YAKE_T{T}", 
-                               f'{timestamp}') # Create a folder like: results/RAKE/{timestamp}
+                               f'{timestamp}_{datasets_max_len}') # Create a folder like: results/RAKE/RAKE/{timestamp}_{datasets_max_len} or results/YAKE/YAKE_T5/{timestamp}_{datasets_max_len}
     
     print(f"Results path: {result_path}")
 
@@ -110,6 +110,7 @@ if __name__ == '__main__':
     
     dataset_list = [#'Inspec', 
                     #'SemEval2017', 
+                    'MDPI',
                     'SemEval2010', 
                     'DUC2001', 
                     'nus', 
@@ -120,7 +121,7 @@ if __name__ == '__main__':
             
         print(f"Dataset: {dataset_name}")
         
-        with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), 'r', encoding='utf-8') as f: # data/processed/{dataset_name}_MAX512.jsonl
+        with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), 'r', encoding='utf-8') as f: # data/processed/{dataset_name}_MAX{datasets_max_len}.jsonl
             lines = f.readlines() # Each line is a document of a specific dataset
             data_list = [json.loads(line.strip()) for line in lines] # data_list contains information about the document (doc, label, stemmed_label)
 
@@ -128,12 +129,13 @@ if __name__ == '__main__':
         output_list = [] # Keeps all available information for each document of the dataset
         perkeyphrase_no_tokens = []
         perdoc_no_keyphrases = []
+
         perdoc_times = []
         perdataset_start_time = time.perf_counter()
 
         for j_data in tqdm(data_list): # For JSON data in data_list (for each document)
 
-            doc = j_data['doc'] # Take the document (size of 512 tokens) labeled as 'doc'
+            doc = j_data['doc'] # Take the document (size of {datasets_max_len} tokens) labeled as 'doc'
             
             perdoc_start_time = time.perf_counter()
 
@@ -178,7 +180,7 @@ if __name__ == '__main__':
                 perkeyphrase_no_tokens.append(len(kw.split())) # Alternative: len([token for part in kw.split('-') for token in part.split()])
 
 
-            pred_keyphrases_list = [pred.strip() for pred in keyphrases] # For each keyphrase (splitted by ;) store the keyphrase in pred_keyphrases_list
+            pred_keyphrases_list = [pred.strip() for pred in keyphrases] 
 
             log = {} # log keeps all the necessary information of the current document
             log['final_pred_keyphrase'] = pred_keyphrases_list
@@ -187,7 +189,7 @@ if __name__ == '__main__':
             log['stemmed_label'] = j_data['stemmed_label']
             
             if ke_method == 'YAKE': 
-                log['doc_title'] = j_data['title']
+                log['title'] = j_data['title']
 
             output_list.append(log)
 
@@ -196,7 +198,7 @@ if __name__ == '__main__':
         total_word_count, total_non_word_count, perdataset_avg_no_words = process_keyphrases([log['final_pred_keyphrase'] for log in output_list])
 
         
-        with open(os.path.join(result_path, f'{dataset_name}_result.json'), "w", encoding='utf-8') as f: # The results file is located in: results/RAKE/{timestamp}/{dataset_name}_result.json
+        with open(os.path.join(result_path, f'{dataset_name}_result.json'), "w", encoding='utf-8') as f: # The results file is located in: results/RAKE/RAKE/{timestamp}_{datasets_max_len}/{dataset_name}_result.json
             for json_data in output_list: # For each log in output_list
                 f.write(json.dumps(json_data, ensure_ascii=False) + '\n')
 
@@ -206,8 +208,10 @@ if __name__ == '__main__':
             jsonl_lines = []
             for log in output_list:
                 line = {}
-                line['doc_title'] = log['doc_title']
-                line['doc_keyphrases'] = log['final_pred_keyphrase']
+                line['title'] = log['title']
+                line['keyphrases'] = log['final_pred_keyphrase']
+                line['label'] = log['label']
+                line['stemmed_label'] = log['stemmed_label']
                 jsonl_lines.append(line)
 
             with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}_YAKE_{T}.jsonl'), "w", encoding='utf-8') as f:

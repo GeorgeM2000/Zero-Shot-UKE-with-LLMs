@@ -11,24 +11,32 @@ from tqdm import tqdm
 
 def clean_text(text="", database="Inspec"):
 
-    # Specially for Duc2001 Database
-    if(database == "Duc2001" or database == "Semeval2017"):
+    # Special handling for the DUC2001 and SemEval2017 datasets.
+    # In these datasets, some line breaks are preceded by a space or comma
+    # (e.g., "word \n" or "word,\n"). These are converted into pure line breaks
+    # to preserve paragraph boundaries.
+    if database == "Duc2001" or database == "Semeval2017":
         pattern2 = re.compile(r'[\s,]' + '[\n]{1}') # A whitespace character (\s) OR comma (,) followed by a newline (\n)
         while (True): # Keeps repeating until no such pattern remains
-            if (pattern2.search(text) is not None):
+            if pattern2.search(text) is not None:
                 position = pattern2.search(text)
                 start = position.start()
                 end = position.end()
                 #start = int(position[0])
-                text_new = text[:start] + "\n" + text[start + 2:] # The + 2 indicates that there were 2 characters before: the whitespace or comma and the newline added to text_new
+                text_new = text[:start] + "\n" + text[start + 2:] 
                 text = text_new
             else:
                 break
     
-    # Single line breaks inside text become spaces
+    # Replace single line breaks occurring inside sentences with spaces.
+    # This joins text that was artificially wrapped across multiple lines.
+    # Example:
+    #   "machine learning\nmethods"
+    # becomes:
+    #   "machine learning methods"
     pattern2 = re.compile(r'[a-zA-Z0-9,\s]' + '[\n]{1}')
     while (True):
-        if (pattern2.search(text) is not None):
+        if pattern2.search(text) is not None:
             position = pattern2.search(text)
             start = position.start()
             end = position.end()
@@ -38,9 +46,12 @@ def clean_text(text="", database="Inspec"):
         else:
             break
 
+
+    # Collapse multiple consecutive whitespace characters into a single space.
+    # This cleans up spacing artifacts introduced during previous replacements.
     pattern3 = re.compile(r'\s{2,}')
     while (True):
-        if (pattern3.search(text) is not None):
+        if pattern3.search(text) is not None:
             position = pattern3.search(text)
             start = position.start()
             end = position.end()
@@ -50,14 +61,21 @@ def clean_text(text="", database="Inspec"):
         else:
             break
 
-    pattern1 = re.compile(r'[<>[\]{}]') # Matches: < > [ ] { }
-    text = pattern1.sub(' ', text) # The brackets are removed and replaced with spaces
+    # Remove markup-related brackets that may appear in the text.
+    # Characters removed: < > [ ] { }
+    pattern1 = re.compile(r'[<>[\]{}]') 
+    text = pattern1.sub(' ', text) 
+    
     text = text.replace("\t", " ")
+    
+    # Convert paragraph markers extracted from some document formats into actual line breaks.
     text = text.replace(' p ', '\n')
     text = text.replace(' /p \n', '\n')
+
+    # Split the text into individual lines for further cleanup.
     lines = text.splitlines()
     
-    # Delete blank lines
+    # Remove empty lines and reconstruct the text.
     text_new = ""
     for line in lines:
         if line != '\n':
@@ -71,7 +89,7 @@ def get_MDPI_data(file_path="data/MDPI/MDPI_Articles.json"):
     data = {}
     titles = {}
     labels = {}
-    with codecs.open(file_path, 'r', 'utf-8') as f:
+    with codecs.open(file_path, 'r', encoding='utf-8') as f:
         json_text = f.readlines()
         for i, line in tqdm(enumerate(json_text), desc="Loading Doc ..."):
             try:
@@ -80,7 +98,6 @@ def get_MDPI_data(file_path="data/MDPI/MDPI_Articles.json"):
                 title = jsonl['title'] 
                 fulltxt = jsonl['fulltext']
                 
-                #doc = ' '.join([title, abstract, fulltxt])
                 doc = title + ". " + fulltxt
                 doc = doc.replace('\n', ' ')
 
@@ -99,7 +116,7 @@ def get_long_data(file_path="data/nus/nus_test.json"):
     data = {}
     titles = {}
     labels = {}
-    with codecs.open(file_path, 'r', 'utf-8') as f:
+    with codecs.open(file_path, 'r', encoding='utf-8') as f:
         json_text = f.readlines()
         for i, line in tqdm(enumerate(json_text), desc="Loading Doc ..."):
             try:
@@ -112,7 +129,7 @@ def get_long_data(file_path="data/nus/nus_test.json"):
                 #doc = ' '.join([title, abstract, fulltxt])
                 doc = title + ". " + abstract + ". " + fulltxt
                 doc = re.sub('\. ', ' . ', doc)
-                doc = re.sub(', ', ' , ', doc)
+                doc = re.sub(', ' , ' , ', doc)
 
                 doc = clean_text(doc, database="nus")
                 doc = doc.replace('\n', ' ')
@@ -131,7 +148,7 @@ def get_short_data(file_path="data/kp20k/kp20k_valid2k_test.json"):
     data = {}
     titles = {}
     labels = {}
-    with codecs.open(file_path, 'r', 'utf-8') as f:
+    with codecs.open(file_path, 'r', encoding='utf-8') as f:
         json_text = f.readlines()
         for i, line in tqdm(enumerate(json_text), desc="Loading Doc ..."):
             try:
@@ -156,7 +173,7 @@ def get_short_data(file_path="data/kp20k/kp20k_valid2k_test.json"):
 
 
 def get_duc2001_data(file_path="data/DUC2001"):
-    text_pattern = re.compile(r'<TEXT>(.*?)</TEXT>', re.S)
+    text_pattern  = re.compile(r'<TEXT>(.*?)</TEXT>', re.S)
     title_pattern = re.compile(r'<HEAD>(.*?)</HEAD>', re.S)
     
     data = {}
@@ -164,7 +181,7 @@ def get_duc2001_data(file_path="data/DUC2001"):
     labels = {}
     for dirname, dirnames, filenames in os.walk(file_path):
         for fname in filenames:
-            if (fname == "annotations.txt"): # There is only one "annotations.txt" file 
+            if fname == "annotations.txt": # There is only one "annotations.txt" file 
                 #left, right = fname.split('.')
                 infile = os.path.join(dirname, fname) # Since file_path = "data/DUC2001", dirname = file_path. infile = "data/DUC2001/{file}"
                 f = open(infile,'rb')
@@ -258,30 +275,11 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', type=str, default='data', help="Directory path of test datasets")
-    parser.add_argument('--max_len', type=str, default='512', help="Maximum length of input document") # Alternatives: 1024 2048
+    parser.add_argument('--max_len', type=str, default='512', help="Maximum length of input document") # Alternatives: 1024 2048 4096
     args = parser.parse_args()
 
     data_path = args.data_path # data/
     MAX_LEN = int(args.max_len) # The maximum token length each document will have
-
-    mdpi_parent_path = "../MDPI Articles/"
-
-    mdpi_target_folders = [
-                           "MAKE 1996-2024/", 
-                           "Applied Sci 1996-2024/", 
-                           "Algo 1996-2024/", 
-                           "IJMS 1996-2024/", 
-                           "Sensors 1996-2024/", 
-                           "Sustainability 1996-2024/"
-                           ]
-    
-    mdpi_article_data_files = [  'MDPI_MAKE_Augmented_Content.json', 
-                                 'MDPI_Applied_Sci_Augmented_Content.json',
-                                 'MDPI_Algo_Augmented_Content.json',
-                                 'MDPI_ijms_Augmented_Content.json',
-                                 'MDPI_Sensors_Augmented_Content.json',
-                                 'MDPI_sustainability_Augmented_Content.json'
-                              ]
 
     dataset_list = [#'Inspec', 
                     #'SemEval2017',
@@ -295,7 +293,7 @@ if __name__ == '__main__':
 
         dataset_dir = os.path.join(data_path, dataset_name) # data/{dataset_name}
 
-        if dataset_name =="SemEval2017":
+        if dataset_name == "SemEval2017": 
             data, references = get_semeval2017_data(dataset_dir + "/docsutf8", dataset_dir + "/keys")
 
         elif dataset_name == "DUC2001":
@@ -317,7 +315,7 @@ if __name__ == '__main__':
             data, references = get_inspec_data(dataset_dir)
 
         elif dataset_name == "MDPI":
-            data, references, titles_dict = get_MDPI_data(mdpi_parent_path, mdpi_target_folders, mdpi_article_data_files)
+            data, references, titles_dict = get_MDPI_data()
 
 
         docs = []

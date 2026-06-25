@@ -58,12 +58,11 @@ if __name__ == '__main__':
     prompt_template = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{} <|eot_id|><|start_header_id|>user<|end_header_id|>\n\nText: {}<|eot_id|>"
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="Llama3 path") # So if i use/download the Llama LLM, it will be located in a folder named meta-llama
+    parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="Llama3 path") 
     parser.add_argument('--data_path', type=str, default='data/processed', help="Directory path of test datasets") 
-    #parser.add_argument('--task_instruction', type=str, default=task_instruction, help="Vanilla prompt")
     parser.add_argument('--max_new_tokens', type=str, default='128', help="Maximum number of tokens to generate")
     parser.add_argument('--cuda', type=str, default='0', help="GPU") # If there is a GPU, it is labeled as 0
-    parser.add_argument('--auth_token', type=str, default='', help="Authentication token for Llama") # Very important. Question: If llama is downloaded locally, why does it need an auth. token?
+    parser.add_argument('--auth_token', type=str, default='', help="Authentication token for Llama") 
     parser.add_argument('--T', type=str, default='5', help="Number of keywords to extract")
     parser.add_argument('--datasets_max_len', type=str, default='512', help="Maximum length of test datasets")
     parser.add_argument('--tokenizer_max_len', type=str, default='4096', help="Maximum length of tokenizer")
@@ -71,7 +70,6 @@ if __name__ == '__main__':
 
     model_name = args.model_name
     data_path = args.data_path
-    #task_instruction = args.task_instruction
     max_new_tokens = int(args.max_new_tokens)
     auth_token = args.auth_token
     T = int(args.T)
@@ -79,10 +77,11 @@ if __name__ == '__main__':
     tokenizer_max_len = int(args.tokenizer_max_len)
 
     # The task instruction is the most critical part of this evaluation. The instruction can be changed depending on the task
-    task_instruction = f"You are a keyphrase extractor. Extract {T} keyphrases from the text. The answer should be listed after 'Keyphrases: ' and separated by semicolons (;). 'Keyphrases: keyphrase 1 ; keyphrase 2 ; ... ; keyphrase N'"
+    task_instruction = f"You are a keyphrase extractor. Extract {T} keyphrases from the text. The answer should be listed after 'Keyphrases: ' and separated by semicolons (;). 'Keyphrases: keyphrase 1 ; keyphrase 2 ; ... ; keyphrase {T}'"
     
     # Loads a pretrained tokenizer associated with model_name. The tokenizer converts raw text → tokens (integer IDs)
-    tokenizer = AutoTokenizer.from_pretrained(model_name, token=auth_token) # AutoTokenizer: A factory class that automatically selects the correct tokenizer type. For LLaMA, this is typically a SentencePiece-based tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(model_name, 
+                                              token=auth_token) # AutoTokenizer: A factory class that automatically selects the correct tokenizer type. For LLaMA, this is typically a SentencePiece-based tokenizer
     
     # AutoModelForCausalLM Loads a model for next-token prediction
     model = AutoModelForCausalLM.from_pretrained(model_name, 
@@ -113,7 +112,7 @@ if __name__ == '__main__':
 
     result_path = os.path.join('results', 
                                f"{model_name.split('/')[-1]}/{model_name.split('/')[-1]}_T{T}", 
-                               f'{timestamp}_vanilla') # Create a folder like: results/Meta-Llama-3-8B-Instruct/{timestamp}
+                               f'{timestamp}_vanilla_{datasets_max_len}') # Create a folder like: results/Meta-Llama-3-8B-Instruct/Meta-Llama-3-8B-Instruct_T5/{timestamp}_vanilla_{datasets_max_len}
     
     print(f"Results path: {result_path}")
 
@@ -122,7 +121,7 @@ if __name__ == '__main__':
         print(f"Directory created: {result_path}")
     
     # Create a settings file
-    settings_path = os.path.join(result_path, 'settings.json') # results/Meta-Llama-3-8B-Instruct/{timestamp}/settings.json
+    settings_path = os.path.join(result_path, 'settings.json') # results/Meta-Llama-3-8B-Instruct/Meta-Llama-3-8B-Instruct_T5/{timestamp}_vanilla_{datasets_max_len}/settings.json
     with open(settings_path, 'w') as settings_file:
         json.dump(settings, settings_file, indent=4)
 
@@ -131,6 +130,7 @@ if __name__ == '__main__':
 
     dataset_list = [#'Inspec', 
                     #'SemEval2017', 
+                    'MDPI',
                     'SemEval2010', 
                     'DUC2001', 
                     'nus', 
@@ -141,7 +141,7 @@ if __name__ == '__main__':
             
         print(f"Dataset: {dataset_name}")
         
-        with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), 'r', encoding='utf-8') as f: # data/processed/{dataset_name}_MAX512.jsonl
+        with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), 'r', encoding='utf-8') as f: # data/processed/{dataset_name}_MAX{datasets_max_len}.jsonl
             lines  = f.readlines() # Each line is a document of a specific dataset
             data_list = [json.loads(line.strip()) for line in lines] # data_list contains information about the document (doc, label, stemmed_label)
 
@@ -149,20 +149,21 @@ if __name__ == '__main__':
         output_list = [] # Keeps all available information for each document of a dataset
         perkeyphrase_no_tokens = []
         perdoc_no_keyphrases = []
+        
         perdoc_times = []
         perdataset_start_time = time.perf_counter()
         
         for j_data in tqdm(data_list): # For JSON data in data_list (for each document)
 
-            doc = j_data['doc'] # Take the document (size of 512 tokens) labeled as 'doc'
+            doc = j_data['doc'] # Take the document (size of {dataset_max_len} tokens) labeled as 'doc'
             prompt = prompt_template.format(task_instruction, doc) # Use the prompt template to insert the document into the prompt and the task instruction
             
 
             # The input to the LLM will be the entire prompt (instruction and document). Uses the model’s tokenizer to convert prompt (text) into token IDs.
             inputs = tokenizer(prompt, 
                                return_tensors="pt", # Returns PyTorch tensors
-                               max_length=tokenizer_max_len, # Caps the sequence at 4096 tokens.
-                               truncation=True # if the prompt exceeds 4096 tokens, it is cut off (usually from the end, depending on tokenizer settings
+                               max_length=tokenizer_max_len, # Caps the sequence at {tokenizer_max_len} tokens.
+                               truncation=True # if the prompt exceeds {tokenizer_max_len} tokens, it is cut off (usually from the end, depending on tokenizer settings
                                ) 
             
             perdoc_start_time = time.perf_counter()
@@ -192,7 +193,7 @@ if __name__ == '__main__':
             #print(generated_output_str)
 
             pred_keyphrases_seq = generated_output_str.lower().split('keyphrases:')[-1].strip().rstrip('.')
-            pred_keyphrases_list = [ pred.strip() for pred in pred_keyphrases_seq.split(';') ] # For each keyphrase (splitted by ;) store the keyphrase in pred_keyphrases_list
+            pred_keyphrases_list = [pred.strip() for pred in pred_keyphrases_seq.split(';')] # For each keyphrase (splitted by ;) store the keyphrase in pred_keyphrases_list
 
             perdoc_no_keyphrases.append(len(pred_keyphrases_list))
 
@@ -218,7 +219,6 @@ if __name__ == '__main__':
         with open(os.path.join(result_path, f'{dataset_name}_result.json'), "w", encoding='utf-8') as f: # The results file is located in: results/Meta-Llama-3-8B-Instruct/{timestamp}/{dataset_name}_result.json
             for json_data in output_list: # For each log in output_list
                 f.write(json.dumps(json_data, ensure_ascii=False) + '\n')
-
 
 
         with open(os.path.join(result_path, f'{dataset_name}_stats.txt'), "w", encoding='utf-8') as f:

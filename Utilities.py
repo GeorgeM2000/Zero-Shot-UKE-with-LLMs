@@ -1,6 +1,5 @@
 import numpy as np
 
-from kneed import KneeLocator
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -31,41 +30,6 @@ def process_keyphrases(perdoc_keyphrases):
         perdoc_avg_no_words.append(total_no_words_per_doc / len(keyphrases_list))
     
     return total_word_count, total_non_word_count, np.mean(perdoc_avg_no_words)
-
-
-
-
-def count_word_overlap_matches(candidate_keywords, reference_keywords, threshold=0.25):
-    """
-    Count how many candidate keywords match the reference keywords
-    based on word overlap (≥ threshold).
-    
-    A match means: at least `threshold` fraction of words in a candidate
-    keyword appear in the words of SOME reference keyword.
-    """
-    matches = 0
-    matched_indices = set()  # To avoid matching the same reference keyword multiple times
-
-    for cand_kw in candidate_keywords:
-        cand_words = cand_kw.lower().split()
-        cand_len = len(cand_words)
-
-        if cand_len == 0:
-            continue
-
-        for idx, ref_kw in enumerate(reference_keywords):
-            if idx in matched_indices:
-                continue
-            
-            ref_words = set(ref_kw.lower().split()) # We use a set for fast lookups
-            overlap = sum(1 for w in cand_words if w in ref_words)
-
-            if overlap / cand_len >= threshold:
-                matches += 1
-                matched_indices.add(idx)
-                break  # Stop once we match this candidate to one reference keyword
-    
-    return matches 
 
 
 

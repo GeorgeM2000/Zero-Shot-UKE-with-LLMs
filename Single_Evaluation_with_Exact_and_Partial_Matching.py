@@ -45,12 +45,12 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', type=str, required=True, help="Directory path of prediction files")
-    parser.add_argument('--T', type=str, default='5', required=False, help="Number of keywords and keyphrases to evaluate")
+    parser.add_argument('--T', type=str, default='5', help="Number of keywords and keyphrases to evaluate")
     args = parser.parse_args()
 
 
     T = int(args.T)
-    preds_dir_path = args.path # Has to be something like this: results/Meta-Llama-3-8B-Instruct/{timestamp}/ --> This is the results folder created from the KE process
+    preds_dir_path = args.path # Has to be something like this: results/Meta-Llama-3-8B-Instruct/.../{timestamp}/ --> This is the results folder created from the KE process
     # The file that contains the predictions is {dataset_name}_result.json for each dataset
     
     log_file_path  = os.path.join(preds_dir_path, 'experiment_results') # The file path to write the results for each dataset
@@ -121,7 +121,7 @@ if __name__ == '__main__':
             
             pred_list = [ p.replace('-'," ") for p in pred_list ]
             pred_list = [ p.replace('\n',"") for p in pred_list ]
-            pred_list = [ re.sub(r'\(.*?\)|\{.*?\}', '', kw).strip() for kw in pred_list ]
+            pred_list = [ re.sub(r'\(.*?\)|\{.*?\}', '', kw).strip() for kw in pred_list ] # Remove any text enclosed in parentheses (...) or braces {...}, then remove leading and trailing whitespace.
             pred_list = [ " ".join(pred.split()) for pred in pred_list ]
             pred_list = [ p.lower().strip() for p in pred_list ]
 

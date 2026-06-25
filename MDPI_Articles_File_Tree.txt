@@ -1,3 +1,16 @@
+The MDPI articles can be stored in a directory named as "MDPI_Articles"
+
+Some clarifications:
+
+1) Epub Articles 1...N --> The MDPI downloaded articles in epub format for a journal
+2) Downloaded_Articles.txt --> A list of all successfully downloaded articles
+3) MDPI_{Journal}_Abstracts.json --> A dictionary containing the titles, keywords, and abstracts of the journal downloaded articles
+4) MDPI_{Journal}_Augmented_Content.json --> A dictionary containing the titles, keywords, and (abstracts + text content from the full article) of the journal downloaded articles
+5) Installation_Results.txt --> Information regarding the installation process of the MDPI articles for all journals
+
+
+
+MDPI_Articles/
 .
 ├── Algo 1996-2024
     Epub Articles 1...N

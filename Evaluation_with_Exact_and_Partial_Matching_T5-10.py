@@ -45,13 +45,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
 
-    preds_dir_path = args.path # Has to be something like this: results/Meta-Llama-3-8B-Instruct/{timestamp}/ --> This is the results folder created from the KE process
+    preds_dir_path = args.path # Has to be something like this: results/Meta-Llama-3-8B-Instruct/.../{timestamp}/ --> This is the results folder created from the KE process
     # The file that contains the predictions is {dataset_name}_result.json for each dataset
     
     log_file_path  = os.path.join(preds_dir_path, 'experiment_results') # The file path to write the results
 
     dataset_list = [#'Inspec', 
-                    #'SemEval2017', 
+                    #'SemEval2017',
+                    'MDPI', 
                     'SemEval2010', 
                     'DUC2001', 
                     'nus', 
@@ -139,7 +140,7 @@ if __name__ == '__main__':
                 else:
                     pred_set.append(pred)
 
-            pred_set_list = pred_set[:10] # Because the maximum number of keyphrases to evaluate is 15
+            pred_set_list = pred_set[:10] # Because the maximum number of keyphrases to evaluate is 10
 
             # Apply stemming to the predicted/extracted keywords and the true keywords
             pred_s_list = []
