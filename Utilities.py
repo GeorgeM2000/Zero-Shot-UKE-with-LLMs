@@ -2,8 +2,7 @@ import numpy as np
 
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
-
-
+from sklearn.feature_extraction.text import CountVectorizer
 
 # This function calculates how many words and non-words exist in the extracted keyphrases per dataset
 # Additionally, it calculates the average number of words per extracted keyphrase for the entire dataset
@@ -70,112 +69,122 @@ def count_word_overlap_matches(candidate_keywords, candidate_keywords_orig, refe
     return matches
 
 
-
-# Similarity function: overlap / max(lenA, lenB)
-def keyword_similarity(set_a, set_b): # Based on exact similarity 
-    overlap = len(set(set_a) & set(set_b))
-    denom = max(len(set_a), len(set_b))
-    return overlap / denom if denom > 0 else 0.0
-
-
-
 def cluster_keywords(keywords, stemmed_keywords, similarity_threshold=0.25):
-    """
-    Cluster keywords using Hierarchical Agglomerative Clustering (average linkage)
-    with word overlap similarity, and return centroid keywords with their scores.
-
-    Args:
-        keywords (list of str): Candidate keywords.
-        scores (list of float): Scores corresponding to each keyword.
-        similarity_threshold (float): Minimum overlap similarity (default=0.25).
-
-    Returns:
-        list of (keyword, score): Cluster centroids and their scores.
-    """
-
-    # Build similarity matrix
     n = len(keywords)
-    sim_matrix = np.zeros((n, n))
-    for i in range(n):
-        for j in range(i+1, n):
-            sim = keyword_similarity(stemmed_keywords[i], stemmed_keywords[j])
-            sim_matrix[i, j] = sim
-            sim_matrix[j, i] = sim
-
+ 
+    # Edge cases
+    if n == 0:
+        return []
+    if n == 1:
+        return list(keywords)
+ 
+    # -----------------------------------------------------------------
+    # Vectorized similarity matrix.
+    # Build a binary bag-of-words matrix (each row = one keyword's stemmed
+    # tokens as a 0/1 vector over the vocabulary), then compute the full
+    # pairwise cosine similarity matrix in one C-level operation.
+    # This replaces the O(n^2) Python loop calling keyword_similarity(),
+    # and replaces the redundant per-pair set() construction with a single
+    # vectorization pass over all n keywords.
+    # -----------------------------------------------------------------
+    vectorizer = CountVectorizer(binary=True, tokenizer=str.split, token_pattern=None, lowercase=False)
+    X = vectorizer.fit_transform(stemmed_keywords)  # shape (n, vocab_size), sparse binary matrix
+ 
+    # cosine_similarity(overlap / sqrt(len_a * len_b)) on binary vectors is exactly
+    # equivalent to: |A ∩ B| / sqrt(|A| * |B|)
+    sim_matrix = cosine_similarity(X)  # shape (n, n), dense float array, diagonal = 1.0
+ 
     # Convert to distance matrix
     dist_matrix = 1 - sim_matrix
-
+    # Numerical safety: cosine_similarity can yield values like 1.0000000002 due to
+    # floating point error, which would make distances slightly negative.
+    np.clip(dist_matrix, 0, None, out=dist_matrix)
+ 
     # Clustering with average linkage
     clustering = AgglomerativeClustering(
         metric="precomputed",
         linkage="average",
         distance_threshold=1 - similarity_threshold,
         compute_full_tree=True,
-        n_clusters=None # There is no need to define the number of clusters
+        n_clusters=None,  # No need to predefine number of clusters
     )
     labels = clustering.fit_predict(dist_matrix)
-
-    # Find cluster centroids
+ 
+    # -----------------------------------------------------------------
+    # Vectorized centroid selection.
+    # For each cluster, instead of a Python loop computing np.mean() per
+    # member, slice the similarity sub-matrix for the cluster's indices in
+    # one shot and compute row-wise average similarity (excluding self-
+    # similarity of 1.0) using NumPy array ops.
+    # -----------------------------------------------------------------
     centroids = []
-    for cluster_id in set(labels): # Take all the unique labels, e.g., 0, 1, 2, 3, ...
-        indices = [idx for idx, lbl in enumerate(labels) if lbl == cluster_id] # Organize the keyword indices based on their label
+    labels = np.asarray(labels)
+ 
+    for cluster_id in np.unique(labels):
+        indices = np.where(labels == cluster_id)[0]
+ 
         if len(indices) == 1:
-            # Single keyword cluster
-            idx = indices[0]
-            centroids.append(keywords[idx])
-        else:
-            # Compute centroid: max avg similarity within cluster
-            best_idx, best_sim = None, -1
-            for idx in indices:
-                sims = [sim_matrix[idx, j] for j in indices if j != idx]
-                avg_sim = np.mean(sims) if sims else 0
-                if avg_sim > best_sim:
-                    best_sim = avg_sim
-                    best_idx = idx
-            centroids.append(keywords[best_idx])
-
+            centroids.append(keywords[indices[0]])
+            continue
+ 
+        # Sub-matrix of pairwise similarities within this cluster
+        cluster_sims = sim_matrix[np.ix_(indices, indices)]  # shape (k, k)
+ 
+        # Each row sums to (k-1) "real" similarities + 1.0 self-similarity on the diagonal.
+        # Subtract the diagonal (always 1.0) and divide by (k-1) to get the average
+        # similarity to all *other* members in the cluster.
+        k = len(indices)
+        row_sums = cluster_sims.sum(axis=1) - np.diag(cluster_sims)
+        avg_sims = row_sums / (k - 1)
+ 
+        best_local_idx = np.argmax(avg_sims)
+        best_idx = indices[best_local_idx]
+        centroids.append(keywords[best_idx])
+ 
     return centroids
-
-
 
 
 def cluster_keywords_embeddings(keywords, embeddings, similarity_threshold=0.8):
     """
     Cluster keywords using Hierarchical Agglomerative Clustering (average linkage)
     based on embedding cosine similarity, and return representative keywords.
-
+ 
     Args:
         keywords (list of str): Candidate keywords/keyphrases.
         embeddings (np.ndarray): Corresponding embedding vectors (n x d).
         similarity_threshold (float): Minimum cosine similarity for clustering.
-
+ 
     Returns:
         list of str: Cluster representative keywords (centroids).
     """
-
-    keywords = list(keywords)
-    embeddings = np.array(embeddings)
-
+ 
+    #keywords = list(keywords)
+    #embeddings = np.asarray(embeddings)  # avoid a forced copy if already an ndarray
+ 
     n = len(keywords)
-
+ 
     # Edge case: empty or single element
     if n == 0:
         return []
     if n == 1:
         return keywords
-
+ 
     # -----------------------------
-    # 1. Compute cosine similarity matrix
+    # 1. Compute cosine similarity matrix (already vectorized)
     # -----------------------------
     sim_matrix = cosine_similarity(embeddings)
-
+ 
     # -----------------------------
     # 2. Convert similarity -> distance
     # -----------------------------
     dist_matrix = 1 - sim_matrix
-
+    # Numerical safety: cosine_similarity can produce values like 1.0000000002
+    # due to floating point error, which would otherwise create tiny negative
+    # distances that can upset AgglomerativeClustering.
+    np.clip(dist_matrix, 0, None, out=dist_matrix)
+ 
     # -----------------------------
-    # 3. HAC clustering
+    # 3. HAC clustering 
     # -----------------------------
     clustering = AgglomerativeClustering(
         metric="precomputed",
@@ -184,35 +193,43 @@ def cluster_keywords_embeddings(keywords, embeddings, similarity_threshold=0.8):
         n_clusters=None,
         compute_full_tree=True
     )
-
+ 
     labels = clustering.fit_predict(dist_matrix)
-
+    labels = np.asarray(labels)
+ 
     # -----------------------------
-    # 4. Select cluster representatives
+    # 4. Select cluster representatives (vectorized)
+    #
+    # Original code: for each cluster, looped over every member in Python,
+    # building a list comprehension of pairwise sims and calling np.mean()
+    # per member -- O(k^2) Python-level work per cluster, repeated across
+    # all clusters (effectively O(n*k) Python overhead in the worst case).
+    #
+    # Replacement: slice the similarity sub-matrix for each cluster's
+    # indices in one shot via np.ix_, then compute row-wise average
+    # similarity (excluding the diagonal self-similarity of 1.0) using
+    # vectorized NumPy operations instead of nested Python loops.
     # -----------------------------
     centroids = []
-
-    for cluster_id in set(labels):
-        indices = [i for i, lbl in enumerate(labels) if lbl == cluster_id]
-
+ 
+    for cluster_id in np.unique(labels):
+        indices = np.where(labels == cluster_id)[0]
+ 
         if len(indices) == 1:
             centroids.append(keywords[indices[0]])
-        else:
-            best_idx, best_score = None, -1
-
-            for i in indices:
-                sims = [sim_matrix[i, j] for j in indices if j != i]
-                avg_sim = np.mean(sims) if sims else 0
-
-                if avg_sim > best_score:
-                    best_score = avg_sim
-                    best_idx = i
-
-            centroids.append(keywords[best_idx])
-
+            continue
+ 
+        cluster_sims = sim_matrix[np.ix_(indices, indices)]  # shape (k, k)
+        k = len(indices)
+ 
+        # Subtract the diagonal (always 1.0, self-similarity) from each row sum,
+        # then divide by (k - 1) to get the average similarity to all *other*
+        # members of the cluster -- equivalent to the original np.mean(sims).
+        row_sums = cluster_sims.sum(axis=1) - np.diag(cluster_sims)
+        avg_sims = row_sums / (k - 1)
+ 
+        best_local_idx = np.argmax(avg_sims)
+        best_idx = indices[best_local_idx]
+        centroids.append(keywords[best_idx])
+ 
     return centroids
-
-
-
-
-

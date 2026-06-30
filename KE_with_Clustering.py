@@ -69,6 +69,42 @@ def get_all_sorted(self, redundancy_removal=False, stemming=False):
 
 """
 
+
+# -----------------------------------------------------------------------
+# Lemmatization helper (replaces PorterStemmer).
+#
+# spaCy lemmatization is linguistically correct (dictionary/POS-aware)
+# rather than rule-based suffix stripping, so it avoids the occasional
+# garbage stems Porter produces, while still collapsing inflected variants
+# ("networks" -> "network", "optimizing"/"optimization" -> "optimize")
+# onto a shared root for the word-overlap similarity metric to work well.
+#
+# Reuses the spaCy model already loaded elsewhere in the pipeline
+# (spacy_model_path / nlp), so no extra model load cost.
+# -----------------------------------------------------------------------
+def lemmatize_keywords(keywords, nlp):
+    """
+    Lemmatize a list of keyword/keyphrase strings using spaCy.
+
+    Args:
+        keywords (list of str): Original keyword/keyphrase strings.
+        nlp: A loaded spaCy Language object (e.g. spacy.load(spacy_model_path)).
+
+    Returns:
+        list of str: Space-joined lemmatized tokens per keyword, e.g.
+            "neural networks" -> "neural network"
+            "optimizing performance" -> "optimize performance"
+    """
+    # nlp.pipe batches the keywords through spaCy's pipeline efficiently,
+    # rather than calling nlp(kw) once per keyword in a Python loop.
+    lemmatized = []
+    for doc in nlp.pipe(keywords):
+        lemmas = [token.lemma_.lower() for token in doc if not token.is_space]
+        lemmatized.append(" ".join(lemmas))
+    return lemmatized
+
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -86,18 +122,22 @@ if __name__ == '__main__':
     data_path = args.data_path
     datasets_max_len = int(args.datasets_max_len)
     spacy_model_path = "../en_core_web_sm-3.8.0-py3-none-any.whl_FILES/en_core_web_sm/en_core_web_sm-3.8.0"
+    spacy_model = spacy.load(spacy_model_path)
+    #stemmer = PorterStemmer()
+
 
 
     if ke_method == 'PositionRank':
-        positionrank = spacy.load(spacy_model_path)
-        positionrank.add_pipe("positionrank")
+        #positionrank = spacy.load(spacy_model_path)
+        #positionrank.add_pipe("positionrank")
+        spacy_model.add_pipe("positionrank")
 
     elif ke_method == 'KPMiner':
-        kpminer_spacy = spacy.load(spacy_model_path)
+        #kpminer_spacy = spacy.load(spacy_model_path)
         kpminer_weights_file = r'/home/georgematlis/Keyword_Extraction/lib/python3.12/site-packages/pke/models/df-semeval2010.tsv.gz' # Alternative: r'../pke/models/df-semeval2010.tsv.gz'
 
     elif ke_method == 'MPRank': 
-        mprank_spacy = spacy.load(spacy_model_path)
+        #mprank_spacy = spacy.load(spacy_model_path)
         stoplist = list(string.punctuation) + list(pke.lang.stopwords.get('en'))
         
     # Load only once
@@ -158,12 +198,12 @@ if __name__ == '__main__':
                 keyphrases = [kw for _,kw in keyphrases]
 
             elif ke_method == 'PositionRank':
-                positionrank_keyphrases = positionrank(doc)
+                positionrank_keyphrases = spacy_model(doc) # Alternative: positionrank(doc)
                 keyphrases = [kw.text for kw in positionrank_keyphrases._.phrases[:]]
             
             elif ke_method == 'KPMiner':
                 kpminer_extractor = pke.unsupervised.KPMiner()
-                kpminer_extractor.load_document(input = doc, language = 'en', spacy_model=spacy_model_path)
+                kpminer_extractor.load_document(input = doc, language = 'en', spacy_model=spacy_model)
                 kpminer_extractor.candidate_selection(lasf = 5, cutoff = 200)
                 df = pke.load_document_frequency_file(input_file = kpminer_weights_file)
                 kpminer_extractor.candidate_weighting(df = df, alpha = 2.3, sigma = 3.0)
@@ -171,7 +211,7 @@ if __name__ == '__main__':
 
             else:
                 mprank_extractor = pke.unsupervised.MultipartiteRank()
-                mprank_extractor.load_document(input = doc, stoplist = stoplist, language = 'en', spacy_model=spacy_model_path)
+                mprank_extractor.load_document(input = doc, stoplist = stoplist, language = 'en', spacy_model=spacy_model)
                 mprank_extractor.candidate_selection(pos = {'NOUN', 'PROPN', 'ADJ'})
                 mprank_extractor.candidate_weighting(alpha = 1.1, threshold = 0.74, method = 'average')
                 keyphrases = [kw for kw,_ in mprank_extractor.get_all_sorted()]
@@ -185,10 +225,6 @@ if __name__ == '__main__':
                 keyphrase_embeddings = embedding_model.encode(keyphrases, 
                                                               convert_to_numpy=True, 
                                                               show_progress_bar=True) 
-                
-                # Optional: convert to a list of embeddings instead of a NumPy array 
-                keyphrase_embeddings = list(keyphrase_embeddings)
-
 
                 keyphrases = cluster_keywords_embeddings(
                     keyphrases,
@@ -196,9 +232,13 @@ if __name__ == '__main__':
                     sim_threshold
                 )
             else:
-                keyphrases = cluster_keywords(keyphrases, 
-                                            [' '.join(PorterStemmer().stem(token.lower()) for token in word_tokenize(kw)) for kw in keyphrases],
-                                            sim_threshold)
+                #keyphrases = cluster_keywords(keyphrases, 
+                #                            [' '.join(stemmer.stem(token.lower()) for token in word_tokenize(kw)) for kw in keyphrases],
+                #                            sim_threshold)
+
+                keyphrases = cluster_keywords(keyphrases,
+                                              lemmatize_keywords(keyphrases, spacy_model)
+                                              sim_threshold)
 
             # ===========================================================================================
 
@@ -268,7 +308,7 @@ if __name__ == '__main__':
 
             f.write(f'Percentage (%) of non-words: {total_non_word_count / total_word_count}\n')
             f.write(f'Average number of words for the entire dataset: {perdataset_avg_no_words}\n')
-            f.write(f'Percentage (%) of non-words multiplied by the maximum number of keyphrases: {(total_non_word_count / total_word_count) * max(perdoc_no_keyphrases)}\n')
-            f.write(f'Average number of words for the entire dataset multiplied by the maximum number of keyphrases: {perdataset_avg_no_words * max(perdoc_no_keyphrases)}\n')
+            #f.write(f'Percentage (%) of non-words multiplied by the maximum number of keyphrases: {(total_non_word_count / total_word_count) * max(perdoc_no_keyphrases)}\n')
+            #f.write(f'Average number of words for the entire dataset multiplied by the maximum number of keyphrases: {perdataset_avg_no_words * max(perdoc_no_keyphrases)}\n')
 
         

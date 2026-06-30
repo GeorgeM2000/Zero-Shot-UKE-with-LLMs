@@ -161,7 +161,7 @@ if __name__ == '__main__':
             
             elif ke_method == 'KPMiner':
                 kpminer_extractor = pke.unsupervised.KPMiner()
-                kpminer_extractor.load_document(input = doc, language = 'en', spacy_model=spacy_model_path)
+                kpminer_extractor.load_document(input = doc, language = 'en', spacy_model=kpminer_spacy)
                 kpminer_extractor.candidate_selection(lasf = 5, cutoff = 200)
                 df = pke.load_document_frequency_file(input_file = kpminer_weights_file)
                 kpminer_extractor.candidate_weighting(df = df, alpha = 2.3, sigma = 3.0)
@@ -169,7 +169,7 @@ if __name__ == '__main__':
 
             else:
                 mprank_extractor = pke.unsupervised.MultipartiteRank()
-                mprank_extractor.load_document(input = doc, stoplist = stoplist, language = 'en', spacy_model=spacy_model_path)
+                mprank_extractor.load_document(input = doc, stoplist = stoplist, language = 'en', spacy_model=mprank_spacy)
                 mprank_extractor.candidate_selection(pos = {'NOUN', 'PROPN', 'ADJ'})
                 mprank_extractor.candidate_weighting(alpha = 1.1, threshold = 0.74, method = 'average')
                 keyphrases = [kw for kw,_ in mprank_extractor.get_all_sorted()]
@@ -241,7 +241,7 @@ if __name__ == '__main__':
 
             f.write(f'Percentage (%) of non-words: {total_non_word_count / total_word_count}\n')
             f.write(f'Average number of words for the entire dataset: {perdataset_avg_no_words}\n')
-            f.write(f'Percentage (%) of non-words multiplied by the maximum number of keyphrases: {(total_non_word_count / total_word_count) * max(perdoc_no_keyphrases)}\n')
-            f.write(f'Average number of words for the entire dataset multiplied by the maximum number of keyphrases: {perdataset_avg_no_words * max(perdoc_no_keyphrases)}\n')
+            #f.write(f'Percentage (%) of non-words multiplied by the maximum number of keyphrases: {(total_non_word_count / total_word_count) * max(perdoc_no_keyphrases)}\n')
+            #f.write(f'Average number of words for the entire dataset multiplied by the maximum number of keyphrases: {perdataset_avg_no_words * max(perdoc_no_keyphrases)}\n')
 
         
