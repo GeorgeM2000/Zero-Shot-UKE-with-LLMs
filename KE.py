@@ -16,7 +16,7 @@ from Utilities import process_keyphrases
 
 
 """
-Add the following function to the base.py file in the pke package. 
+Add the following method to the base.py file in the pke package after you download it using pip inside a venv. 
 
 def get_all_sorted(self, redundancy_removal=False, stemming=False):
     \"""Returns all candidates sorted by descending weight.
@@ -87,9 +87,9 @@ if __name__ == '__main__':
 
     elif ke_method == 'KPMiner':
         kpminer_spacy = spacy.load(spacy_model_path)
-        kpminer_weights_file = r'/home/georgematlis/Keyword_Extraction/lib/python3.12/site-packages/pke/models/df-semeval2010.tsv.gz' #r'../pke/models/df-semeval2010.tsv.gz'
+        kpminer_weights_file = r'/home/georgematlis/Keyword_Extraction/lib/python3.12/site-packages/pke/models/df-semeval2010.tsv.gz' # Alternative: r'../pke/models/df-semeval2010.tsv.gz'
 
-    elif ke_method == 'YAKE': # YAKE extracts 20 keywords/keyphrases by default
+    elif ke_method == 'YAKE': # YAKE extracts 20 keywords or keyphrases by default
         yake_extractor = yake.KeywordExtractor(lan='en', n=3, dedupLim=0.9, dedupFunc='seqm', windowsSize=1, top=T, features=None)
 
     elif ke_method == 'MPRank':
@@ -99,7 +99,7 @@ if __name__ == '__main__':
 
     # Create a timestamp, e.g 2026-05-03_07-29-30
     now = datetime.datetime.now()
-    timestamp = now.strftime("%Y%m%d_%H%M%S")
+    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
 
     result_path = os.path.join('results', 
                                f"{ke_method}/{ke_method}" if ke_method != 'YAKE' else f"{ke_method}/YAKE_T{T}", 
@@ -125,7 +125,7 @@ if __name__ == '__main__':
             
         print(f"Dataset: {dataset_name}")
         
-        with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), 'r', encoding='utf-8') as f: # data/processed/{dataset_name}_MAX{datasets_max_len}.jsonl
+        with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), "r", encoding='utf-8') as f: # data/processed/{dataset_name}_MAX{datasets_max_len}.jsonl
             lines = f.readlines() # Each line is a document of a specific dataset
             data_list = [json.loads(line.strip()) for line in lines] # data_list contains information about the document (doc, label, stemmed_label)
 
@@ -140,7 +140,7 @@ if __name__ == '__main__':
         for j_data in tqdm(data_list): # For JSON data in data_list (for each document)
 
             doc = j_data['doc'] # Take the document (size of {datasets_max_len} tokens) labeled as 'doc'
-            
+
             perdoc_start_time = time.perf_counter()
 
             # =============================== KE Process ========================================
@@ -176,31 +176,28 @@ if __name__ == '__main__':
             
             # ==================================================================================
 
-            perdoc_end_time = time.perf_counter()
-            perdoc_times.append(perdoc_end_time - perdoc_start_time)
-            perdoc_no_keyphrases.append(len(keyphrases))
-
-            for kw in keyphrases:
-                perkeyphrase_no_tokens.append(len(kw.split())) # Alternative: len([token for part in kw.split('-') for token in part.split()])
-
-
-            pred_keyphrases_list = [pred.strip() for pred in keyphrases] 
-
+            perdoc_times.append(time.perf_counter() - perdoc_start_time)
             log = {} # log keeps all the necessary information of the current document
-            log['final_pred_keyphrase'] = pred_keyphrases_list
+            log['final_pred_keyphrase'] = [pred.strip() for pred in keyphrases]
             log['doc'] = doc
             log['label'] = j_data['label']
             log['stemmed_label'] = j_data['stemmed_label']
             
             if ke_method == 'YAKE': 
                 log['title'] = j_data['title']
-
+            
             output_list.append(log)
 
 
         perdataset_end_time = time.perf_counter()
         total_word_count, total_non_word_count, perdataset_avg_no_words = process_keyphrases([log['final_pred_keyphrase'] for log in output_list])
 
+        for log in output_list:
+            keyphrases = log['final_pred_keyphrase']
+            perdoc_no_keyphrases.append(len(keyphrases))
+
+            for kw in keyphrases:
+                perkeyphrase_no_tokens.append(len(kw.split())) # Alternative: len([token for part in kw.split('-') for token in part.split()])
         
         with open(os.path.join(result_path, f'{dataset_name}_result.json'), "w", encoding='utf-8') as f: # The results file is located in: results/RAKE/RAKE/{timestamp}_{datasets_max_len}/{dataset_name}_result.json
             for json_data in output_list: # For each log in output_list

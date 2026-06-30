@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
     # Create a timestamp, e.g 2026-05-03_07-29-30
     now = datetime.datetime.now()
-    timestamp = now.strftime("%Y%m%d_%H%M%S")
+    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
 
     result_path = os.path.join('results', 
                                f"{model_name.split('/')[-1]}/{model_name.split('/')[-1]}_T{T}", 
@@ -141,8 +141,8 @@ if __name__ == '__main__':
             
         print(f"Dataset: {dataset_name}")
         
-        with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), 'r', encoding='utf-8') as f: # data/processed/{dataset_name}_MAX{datasets_max_len}.jsonl
-            lines  = f.readlines() # Each line is a document of a specific dataset
+        with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), "r", encoding='utf-8') as f: # data/processed/{dataset_name}_MAX{datasets_max_len}.jsonl
+            lines  = f.readlines() # Each line is a document
             data_list = [json.loads(line.strip()) for line in lines] # data_list contains information about the document (doc, label, stemmed_label)
 
 
@@ -181,29 +181,18 @@ if __name__ == '__main__':
              
             # ==================================================================================
 
-            perdoc_end_time = time.perf_counter()
-            perdoc_times.append(perdoc_end_time - perdoc_start_time)
+            perdoc_times.append(time.perf_counter() - perdoc_start_time)
             
-            
-
             # Takes the generated token IDs (outputs[0], the first sequence) and converts them back into human-readable text using the tokenizer
             outputs_str = tokenizer.decode(outputs[0]) # Use the tokenizer to decode the output
 
             generated_output_str = get_generated_output(outputs_str) # The final string of the output will be the extracted keyphrases
-            #print(generated_output_str)
-
             pred_keyphrases_seq = generated_output_str.lower().split('keyphrases:')[-1].strip().rstrip('.')
-            pred_keyphrases_list = [pred.strip() for pred in pred_keyphrases_seq.split(';')] # For each keyphrase (splitted by ;) store the keyphrase in pred_keyphrases_list
-
-            perdoc_no_keyphrases.append(len(pred_keyphrases_list))
-
-            for kw in pred_keyphrases_list:
-                perkeyphrase_no_tokens.append(len(kw.split())) # Alternative: len([token for part in kw.split('-') for token in part.split()])
 
             log = {} # log keeps all the necessary information of the current document
             log['prompt'] = prompt
             log['generated_output'] = generated_output_str
-            log['final_pred_keyphrase'] = pred_keyphrases_list
+            log['final_pred_keyphrase'] = [pred.strip() for pred in pred_keyphrases_seq.split(';')] # For each keyphrase (splitted by ;) store the keyphrase in pred_keyphrases_list
             log['doc'] = doc
             log['label'] = j_data['label']
             log['stemmed_label'] = j_data['stemmed_label']
@@ -214,6 +203,12 @@ if __name__ == '__main__':
         perdataset_end_time = time.perf_counter()
         total_word_count, total_non_word_count, perdataset_avg_no_words = process_keyphrases([log['final_pred_keyphrase'] for log in output_list])
 
+        for log in output_list:
+            pred_keyphrases_list = log['final_pred_keyphrase']
+            perdoc_no_keyphrases.append(len(pred_keyphrases_list))
+
+            for kw in pred_keyphrases_list:
+                perkeyphrase_no_tokens.append(len(kw.split())) # Alternative: len([token for part in kw.split('-') for token in part.split()])
 
 
         with open(os.path.join(result_path, f'{dataset_name}_result.json'), "w", encoding='utf-8') as f: # The results file is located in: results/Meta-Llama-3-8B-Instruct/{timestamp}/{dataset_name}_result.json
