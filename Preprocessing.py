@@ -4,6 +4,7 @@ import json
 import os
 import nltk
 import argparse
+import numpy as np
 
 from tqdm import tqdm
 
@@ -324,6 +325,8 @@ if __name__ == '__main__':
         labels_stemmed = []
 
         porter = nltk.PorterStemmer()
+        doc_lens = [] # Document lengths for dataset {dataset_name}
+        exceeded_max_doc_len = [] # Number of {dataset_name} document lengths {MAX_LEN} has exceeded. 1 (True) = document length is greater than {MAX_LEN}. 0 (False) = {MAX_LEN} is greater than document length
 
         for key, doc in data.items(): # for each document in data
 
@@ -339,6 +342,10 @@ if __name__ == '__main__':
                 tokens = l.split()
                 labels_s.append(' '.join(porter.stem(t) for t in tokens))
 
+
+            doc_lens.append(len(doc.split()))
+            exceeded_max_doc_len.append(len(doc.split()) > MAX_LEN)
+
             doc = ' '.join(doc.split()[:MAX_LEN]) # Split the document and take the first 512 tokens (words, numbers, characters, and pretty much everything that is separated with a whitespace)
             
             titles.append(titles_dict[key])
@@ -346,7 +353,12 @@ if __name__ == '__main__':
             docs.append(doc)
         
         assert len(docs) == len(labels) == len(labels_stemmed) == len(titles), "The lengths of doc_list, labels, labels_stemmed and titles are not equal."
-        
+        print(f"The maximum document length for dataset {dataset_name} is {max(doc_lens)}")
+        exceeded_max_doc_len = np.array(exceeded_max_doc_len)
+
+        print(f"Document length is greater than {MAX_LEN}:", np.count_nonzero(exceeded_max_doc_len == True))
+        print(f"{MAX_LEN} is greater than document length:", np.count_nonzero(exceeded_max_doc_len == False))
+
         jsonl_lines = []
         for doc, label, stemmed_label, title in zip(docs, labels, labels_stemmed, titles):
             line = {}
