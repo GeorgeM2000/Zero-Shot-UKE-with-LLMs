@@ -11,7 +11,7 @@ def process_keyphrases(perdoc_keyphrases):
     total_word_count = 0
     total_non_word_count = 0
 
-    for keyphrases_list in perdoc_keyphrases: # perdoc_keyphrases is a 2D list. Each inner list contains keyphrases for one document: [keyphrase 1, ..., keyphrase N]
+    for keyphrases_list in perdoc_keyphrases: # {perdoc_keyphrases} is a 2D list. Each inner list contains keyphrases for one document: [keyphrase 1, ..., keyphrase N]
 
         total_no_words_per_doc = 0
 
@@ -159,7 +159,7 @@ def cluster_keywords_embeddings(keywords, embeddings, similarity_threshold=0.8):
     """
  
     #keywords = list(keywords)
-    #embeddings = np.asarray(embeddings)  # avoid a forced copy if already an ndarray
+    #embeddings = np.asarray(embeddings)  # Avoid a forced copy if already an ndarray
  
     n = len(keywords)
  

@@ -328,17 +328,17 @@ if __name__ == '__main__':
         doc_lens = [] # Document lengths for dataset {dataset_name}
         exceeded_max_doc_len = [] # Number of {dataset_name} document lengths {MAX_LEN} has exceeded. 1 (True) = document length is greater than {MAX_LEN}. 0 (False) = {MAX_LEN} is greater than document length
 
-        for key, doc in data.items(): # for each document in data
+        for key, doc in data.items(): # For each document in data
 
             # Get stemmed labels and document segments
 
-            # labels are the true keywords
-            # ref represents the keyword or the keyphrase
-            # references[key] returns a list of keywords/keyphrases for a single document given the key
+            # {labels} are the true keywords
+            # {ref} represents the keyword or the keyphrase
+            # {references[key]} returns a list of keywords/keyphrases for a single document given the key
             labels.append([ref.replace(" \n", "") for ref in references[key]]) 
 
-            labels_s = [] # labels_s are the true stemmed keywords 
-            for l in references[key]: # l represents the keyword or the keyphrase
+            labels_s = [] # {labels_s} are the true stemmed keywords 
+            for l in references[key]: # {l} represents the keyword or the keyphrase
                 tokens = l.split()
                 labels_s.append(' '.join(porter.stem(t) for t in tokens))
 
