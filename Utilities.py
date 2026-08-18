@@ -4,10 +4,11 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.feature_extraction.text import CountVectorizer
 
-# This function calculates how many words and non-words exist in the extracted keyphrases per dataset
-# Additionally, it calculates the average number of words per extracted keyphrase for the entire dataset
+# Count how many words and non-words exist in the extracted keyphrases list (per dataset)
+# Additionally, calculate the average number of words per extracted keyphrase for the entire dataset
 def process_keyphrases(perdoc_keyphrases):
     perdoc_avg_no_words = []
+    
     total_word_count = 0
     total_non_word_count = 0
 
@@ -20,7 +21,7 @@ def process_keyphrases(perdoc_keyphrases):
             tokens = [token for token in keyphrase.split()]
             
             for t in tokens:
-                if t.isalpha():  # Check if it's a valid word
+                if t.isalpha(): # Check if it's a valid word
                     total_no_words_per_doc += 1
                     total_word_count += 1
                 else:
@@ -44,9 +45,10 @@ def count_word_overlap_matches(candidate_keywords, candidate_keywords_orig, refe
     matched_indices = set()  # To avoid matching the same reference keyword multiple times
 
     for cand_kw, cand_kw_orig in zip(candidate_keywords, candidate_keywords_orig):
-        cand_words      = cand_kw.lower().split()
-        cand_words_orig = cand_kw_orig.lower().split()
+        cand_words      = cand_kw.lower().split() # Stemmed words of candidate keyphrase
+        cand_words_orig = cand_kw_orig.lower().split() # Original words of candidate keyphrase
         cand_len = len(cand_words)
+
         if cand_len == 0:
             continue
 
@@ -54,8 +56,8 @@ def count_word_overlap_matches(candidate_keywords, candidate_keywords_orig, refe
             if idx in matched_indices:
                 continue
 
-            ref_words      = set(ref_kw.lower().split())       # stemmed reference words
-            ref_words_orig = set(ref_kw_orig.lower().split())  # original reference words
+            ref_words      = set(ref_kw.lower().split())       # Stemmed reference words
+            ref_words_orig = set(ref_kw_orig.lower().split())  # Original reference words
 
             # OR logic: check overlap on stemmed OR original
             overlap_stemmed = sum(1 for w in cand_words if w in ref_words)
@@ -69,7 +71,47 @@ def count_word_overlap_matches(candidate_keywords, candidate_keywords_orig, refe
     return matches
 
 
-def cluster_keywords(keywords, stemmed_keywords, similarity_threshold=0.25):
+
+
+# -----------------------------------------------------------------------
+# Lemmatization helper (replaces PorterStemmer).
+#
+# spaCy lemmatization is linguistically correct (dictionary/POS-aware)
+# rather than rule-based suffix stripping, so it avoids the occasional
+# garbage stems Porter produces, while still collapsing inflected variants
+# ("networks" -> "network", "optimizing"/"optimization" -> "optimize")
+# onto a shared root for the word-overlap similarity metric to work well.
+#
+# Reuses the spaCy model already loaded elsewhere in the pipeline
+# (spacy_model_path / nlp), so no extra model load cost.
+# -----------------------------------------------------------------------
+def lemmatize_keywords(keywords_list, nlp): # keywords_list for only one document in a dataset
+    """
+    Lemmatize a list of keyword/keyphrase strings using spaCy.
+
+    Args:
+        keywords_list (list of str): Original keyword/keyphrase strings.
+        nlp: A loaded spaCy Language object (e.g. spacy.load(spacy_model_path)).
+
+    Returns:
+        list of str: Space-joined lemmatized tokens per keyword, e.g.
+            "neural networks" -> "neural network"
+            "optimizing performance" -> "optimize performance"
+    """
+    # nlp.pipe batches the keywords list through spaCy's pipeline efficiently,
+    # rather than calling nlp(kw) once per keyword in a Python loop.
+    lemmatized = []
+    for kw in nlp.pipe(keywords_list):
+        lemmas = [token.lemma_.lower() for token in kw if not token.is_space]
+        lemmatized.append(" ".join(lemmas))
+
+    return lemmatized
+
+
+
+
+
+def cluster_keywords(keywords, stemmed_keywords, similarity_threshold=0.25): # {stemmed_keywords} or another name we could use is {lemmatized_keywords}
     n = len(keywords)
  
     # Edge cases

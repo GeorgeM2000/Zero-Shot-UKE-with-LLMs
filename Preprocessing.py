@@ -1,12 +1,15 @@
 import re
+import sys
 import codecs
 import json
 import os
 import nltk
 import argparse
+import spacy
 import numpy as np
 
 from tqdm import tqdm
+from Utilities import lemmatize_keywords
 
 
 
@@ -90,7 +93,7 @@ def get_MDPI_data(file_path="data/MDPI/MDPI_Articles.json"):
     data = {}
     titles = {}
     labels = {}
-    with codecs.open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         json_text = f.readlines()
         for i, line in tqdm(enumerate(json_text), desc="Loading Doc ..."):
             try:
@@ -117,7 +120,7 @@ def get_long_data(file_path="data/nus/nus_test.json"):
     data = {}
     titles = {}
     labels = {}
-    with codecs.open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         json_text = f.readlines()
         for i, line in tqdm(enumerate(json_text), desc="Loading Doc ..."):
             try:
@@ -149,7 +152,7 @@ def get_short_data(file_path="data/kp20k/kp20k_valid2k_test.json"):
     data = {}
     titles = {}
     labels = {}
-    with codecs.open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         json_text = f.readlines()
         for i, line in tqdm(enumerate(json_text), desc="Loading Doc ..."):
             try:
@@ -173,41 +176,147 @@ def get_short_data(file_path="data/kp20k/kp20k_valid2k_test.json"):
     return data,labels,titles
 
 
+
 def get_duc2001_data(file_path="data/DUC2001"):
-    text_pattern  = re.compile(r'<TEXT>(.*?)</TEXT>', re.S)
-    title_pattern = re.compile(r'<HEAD>(.*?)</HEAD>', re.S)
-    
+
+    # ----------------------------------------------------------------------
+    # Patterns
+    # ----------------------------------------------------------------------
+
+    # Add/remove supported title tags here
+    TITLE_TAGS = ["HEAD", "HEADLINE", "HL"]
+
+    title_pattern = re.compile(
+        rf'<(?:{"|".join(TITLE_TAGS)})\b[^>]*>(.*?)</(?:{"|".join(TITLE_TAGS)})>',
+        re.S | re.I
+    )
+
+    text_pattern = re.compile(
+        r'<TEXT\b[^>]*>(.*?)</TEXT>',
+        re.S | re.I
+    )
+
+    # Removes HTML/XML tags inside extracted title/text
+    html_pattern = re.compile(r'<[^>]+>')
+
     data = {}
     titles = {}
     labels = {}
-    for dirname, dirnames, filenames in os.walk(file_path):
+
+    # ------------------------------------------------------------------
+    # Statistics
+    # ------------------------------------------------------------------
+
+    total_files = 0
+
+    files_with_title = 0
+    files_without_title = 0
+
+    files_with_text = 0
+    files_without_text = 0
+
+    valid_files = 0
+    discarded_files = 0
+
+    # ------------------------------------------------------------------
+    # Read annotations first
+    # ------------------------------------------------------------------
+
+    all_labels = {}
+    for dirname, _, filenames in os.walk(file_path):
         for fname in filenames:
-            if fname == "annotations.txt": # There is only one "annotations.txt" file 
-                #left, right = fname.split('.')
-                infile = os.path.join(dirname, fname) # Since file_path = "data/DUC2001", dirname = file_path. infile = "data/DUC2001/{file}"
-                f = open(infile,'rb')
-                text = f.read().decode('utf8')
-                lines = text.splitlines()
-                for line in lines:
-                    left, right = line.split("@")
-                    d = right.split(";")[:-1] # The assigned keywords are separated with a ";". The variable "d" holds all the assigned keywords of an article
-                    l = left # The left part works as the ID of the article 
-                    labels[l] = d
-                f.close()
-            else:
+
+            if fname == "annotations.txt":
+
                 infile = os.path.join(dirname, fname)
-                f = open(infile,'rb')
-                text = f.read().decode('utf8')
-                title = re.findall(title_pattern, text)[0] # Find all patterns of text where it starts with "<HEAD>" and end with "</HEAD>". If there are > 1, take the first occurence
-                text = re.findall(text_pattern, text)[0]
 
-                text = text.lower()
-                title = title.lower()
+                with open(infile, "rb") as f:
+                    text = f.read().decode("utf8")
 
-                text = clean_text(title + ". " + text, database="Duc2001")
-                data[fname] = text.strip("\n")
-                titles[fname] = title
-                #data[fname] = text
+                for line in text.splitlines():
+                    left, right = line.split("@", 1)
+
+                    left = left.strip()
+                    keywords = right.strip().split(";")[:-1]
+
+                    all_labels[left] = keywords
+
+                break
+
+    # -------------------------------------------------------
+    # Rest news articles
+    # -------------------------------------------------------
+
+    for dirname, _, filenames in os.walk(file_path):
+        for fname in filenames:
+
+            if fname == "annotations.txt":
+                continue
+
+            infile = os.path.join(dirname, fname)
+            
+            total_files += 1
+            with open(infile, "rb") as f:
+                text = f.read().decode("utf8")
+
+            # ---------------------- TITLE -----------------------------
+
+            title_match = title_pattern.search(text)
+
+            if title_match:
+                files_with_title += 1
+                title = html_pattern.sub("", title_match.group(1))
+                title = re.sub(r"\s+", " ", title).strip()
+
+            else:
+                files_without_title += 1
+                discarded_files += 1
+                continue
+
+            # ----------------------- TEXT -----------------------------
+
+            text_match = text_pattern.search(text)
+
+            if text_match:
+                files_with_text += 1
+                article = text_match.group(1)
+
+            else:
+                files_without_text += 1
+                discarded_files += 1
+                continue
+
+            # -------------------- VALID ARTICLE -----------------------
+
+            valid_files += 1
+
+            article = article.lower()
+            title = title.lower()
+
+            article = clean_text(title + ". " + article, database="Duc2001")
+
+            data[fname] = article.strip("\n")
+            titles[fname] = title
+            
+
+            # Keep labels only for retained articles
+            if fname in all_labels:
+                labels[fname] = all_labels[fname]
+
+    # ------------------------------------------------------------------
+    # Statistics
+    # ------------------------------------------------------------------
+
+    print("\nDUC2001 statistics")
+    print("------------------------------")
+    print(f"Total article files      : {total_files}")
+    print(f"Files with title         : {files_with_title}")
+    print(f"Files without title      : {files_without_title}")
+    print(f"Files with text          : {files_with_text}")
+    print(f"Files without text       : {files_without_text}")
+    print(f"Valid articles           : {valid_files}")
+    print(f"Discarded articles       : {discarded_files}")
+    print()
 
     return data,labels,titles
 
@@ -217,9 +326,10 @@ def get_inspec_data(file_path="data/Inspec"):
 
     data = {}
     labels = {}
-    for dirname, dirnames, filenames in os.walk(file_path):
+    for dirname, _, filenames in os.walk(file_path):
         for fname in filenames:
             left, right = fname.split('.')
+
             if (right == "abstr"):
                 infile = os.path.join(dirname, fname)
                 f = open(infile)
@@ -227,6 +337,7 @@ def get_inspec_data(file_path="data/Inspec"):
                 text = text.replace("%", '')
                 text = clean_text(text)
                 data[left] = text
+                f.close()
 
             if (right == "uncontr"):
                 infile = os.path.join(dirname, fname)
@@ -237,6 +348,7 @@ def get_inspec_data(file_path="data/Inspec"):
                 text = text.lower()
                 label = text.split("; ")
                 labels[left] = label
+                f.close()
 
     return data,labels
 
@@ -245,19 +357,21 @@ def get_semeval2017_data(data_path="data/SemEval2017/docsutf8",labels_path="data
 
     data = {}
     labels = {}
-    for dirname, dirnames, filenames in os.walk(data_path):
+    for dirname, _, filenames in os.walk(data_path):
         for fname in filenames:
             left, right = fname.split('.')
+
             infile = os.path.join(dirname, fname)
             #f = open(infile, 'rb')
             #text = f.read().decode('utf8')
-            with codecs.open(infile, "r", "utf-8") as fi:
+            with open(infile, "r", "utf-8") as fi:
                 text = fi.read()
                 text = text.replace("%", '')
             text = clean_text(text, database="Semeval2017")
             data[left] = text.lower()
             #f.close()
-    for dirname, dirnames, filenames in os.walk(labels_path):
+
+    for dirname, _, filenames in os.walk(labels_path):
         for fname in filenames:
             left, right = fname.split('.')
             infile = os.path.join(dirname, fname)
@@ -276,19 +390,29 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', type=str, default='data', help="Directory path of test datasets")
-    parser.add_argument('--max_len', type=str, default='512', help="Maximum length of input document") # Alternatives: 1024 2048 4096
+    parser.add_argument('--max_len', type=str, default='FULL', help="Maximum length of input document") # Alternatives: 1024 2048 4096
+    parser.add_argument('--word_norm', type=str, default='Stem', help="Word normalization technique")
     args = parser.parse_args()
 
     data_path = args.data_path # data/
-    MAX_LEN = int(args.max_len) # The maximum token length each document will have
+    MAX_LEN = args.max_len if args.max_len == "FULL" else int(args.max_len) # The maximum token length each document will have
+    word_norm_technique = args.word_norm
+
+    if word_norm_technique == "Lemma": 
+        spacy_model_path = "../en_core_web_lg-3.8.0-py3-none-any/en_core_web_lg/en_core_web_lg-3.8.0"
+        spacy_model = spacy.load(spacy_model_path)
+    else:
+        # With PorterStemmer, matching candidate keywords to reference keywords becomes easier (loose matching)
+        porter = nltk.PorterStemmer()
 
     dataset_list = [#'Inspec', 
                     #'SemEval2017',
                     'MDPI', 
                     'SemEval2010', 
-                    'DUC2001', 
+                    'DUC2001' 
                     'nus', 
-                    'krapivin']
+                    'krapivin'
+                    ]
 
     for dataset_name in dataset_list:
 
@@ -322,50 +446,58 @@ if __name__ == '__main__':
         docs = []
         labels = []
         titles = []
-        labels_stemmed = []
+        labels_normalized = []
 
-        porter = nltk.PorterStemmer()
         doc_lens = [] # Document lengths for dataset {dataset_name}
-        exceeded_max_doc_len = [] # Number of {dataset_name} document lengths {MAX_LEN} has exceeded. 1 (True) = document length is greater than {MAX_LEN}. 0 (False) = {MAX_LEN} is greater than document length
+
+        # Number of {dataset_name} documents {MAX_LEN} has exceeded. 1 (True) = document length is greater than {MAX_LEN}. 0 (False) = {MAX_LEN} is greater than document length
+        exceeded_max_doc_len = [] if MAX_LEN != "FULL" else None 
 
         for key, doc in data.items(): # For each document in data
 
-            # Get stemmed labels and document segments
+            # Get normalized labels and document segments
 
             # {labels} are the true keywords
             # {ref} represents the keyword or the keyphrase
             # {references[key]} returns a list of keywords/keyphrases for a single document given the key
             labels.append([ref.replace(" \n", "") for ref in references[key]]) 
 
-            labels_s = [] # {labels_s} are the true stemmed keywords 
-            for l in references[key]: # {l} represents the keyword or the keyphrase
-                tokens = l.split()
-                labels_s.append(' '.join(porter.stem(t) for t in tokens))
+            if word_norm_technique == "Lemma":
+                labels_n = lemmatize_keywords(references[key], spacy_model)
 
-
+            else:
+                labels_n = [] # {labels_n} are the true normalized keywords
+                for l in references[key]: # {l} represents the keyword or the keyphrase
+                    tokens = l.split()
+                    labels_n.append(' '.join(porter.stem(t) for t in tokens))
+            
             doc_lens.append(len(doc.split()))
-            exceeded_max_doc_len.append(len(doc.split()) > MAX_LEN)
+            exceeded_max_doc_len.append( (len(doc.split()) > MAX_LEN) if MAX_LEN != "FULL" else False)
 
-            doc = ' '.join(doc.split()[:MAX_LEN]) # Split the document and take the first 512 tokens (words, numbers, characters, and pretty much everything that is separated with a whitespace)
+            # Split the document and take the first 512 tokens (words, numbers, characters, and pretty much everything that is separated with a whitespace)
+            if MAX_LEN != "FULL":
+                doc = ' '.join(doc.split()[:MAX_LEN]) 
             
             titles.append(titles_dict[key])
-            labels_stemmed.append(labels_s)
+            labels_normalized.append(labels_n)
             docs.append(doc)
         
-        assert len(docs) == len(labels) == len(labels_stemmed) == len(titles), "The lengths of doc_list, labels, labels_stemmed and titles are not equal."
-        print(f"The maximum document length for dataset {dataset_name} is {max(doc_lens)}")
+        assert len(docs) == len(labels) == len(labels_normalized) == len(titles), "The lengths of doc_list, labels, labels_normalized and titles are not equal."
+
+        print(f"\nThe maximum document length for dataset {dataset_name} is {max(doc_lens)}")
         exceeded_max_doc_len = np.array(exceeded_max_doc_len)
 
         print(f"Document length is greater than {MAX_LEN}:", np.count_nonzero(exceeded_max_doc_len == True))
         print(f"{MAX_LEN} is greater than document length:", np.count_nonzero(exceeded_max_doc_len == False))
+        print()
 
         jsonl_lines = []
-        for doc, label, stemmed_label, title in zip(docs, labels, labels_stemmed, titles):
+        for doc, label, normalized_label, title in zip(docs, labels, labels_normalized, titles):
             line = {}
-            line['doc'] = doc
-            line['label'] = label
-            line['stemmed_label'] = stemmed_label
             line['title'] = title
+            line['label'] = label
+            line['normalized_label'] = normalized_label
+            line['doc'] = doc
             jsonl_lines.append(line)
 
         result_path = os.path.join(data_path, 'processed') # data/processed

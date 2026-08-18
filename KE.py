@@ -2,8 +2,8 @@ import os
 import json
 import datetime
 import argparse
-import pytextrank
-import pke # Use this library when you want to run the KE methods in pke
+import pytextrank # Required if you want to use PositionRank, TextRank, TopicRank
+import pke # Required if you want to use KPMiner, MPRank, and other KE methods 
 import spacy
 import yake
 import string
@@ -16,7 +16,7 @@ from Utilities import process_keyphrases
 
 
 """
-Add the following method to the base.py file in the pke package after you download it using pip inside a venv. 
+Add the following method to the base.py file in the pke package after you download it using pip inside a venv (virtual enviroment). 
 
 def get_all_sorted(self, redundancy_removal=False, stemming=False):
     \"""Returns all candidates sorted by descending weight.
@@ -71,25 +71,33 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ke_method', type=str, default='RAKE', help="The keyword/keyphrase extraction method") 
     parser.add_argument('--data_path', type=str, default='data/processed', help="Directory path of test datasets") 
-    parser.add_argument('--T', type=str, default='5', help="Number of keywords/keyphrases to extract")
-    parser.add_argument('--datasets_max_len', type=str, default='512', help="Maximum length of test datasets")
+    parser.add_argument('--T', type=str, default='10', help="Number of keywords/keyphrases to extract")
+    parser.add_argument('--datasets_max_len', type=str, default='FULL', help="Maximum length of test datasets")
     args = parser.parse_args() # Parse the arguments
 
     ke_method = args.ke_method
     data_path = args.data_path
-    T = int(args.T) # Set for KE methods that require it. Some KE methods extract only T keyphrases/keywords. Others output all candidates with their scores
-    datasets_max_len = int(args.datasets_max_len)
-    spacy_model_path = "../en_core_web_sm-3.8.0-py3-none-any.whl_FILES/en_core_web_sm/en_core_web_sm-3.8.0"
+    T = int(args.T) # Required for some KE methods. Some KE methods extract only T keyphrases/keywords. Others output all candidate keyphrases/keywords with their scores
+    datasets_max_len = args.datasets_max_len
+    spacy_model_path = "../en_core_web_sm-3.8.0-py3-none-any/en_core_web_sm/en_core_web_sm-3.8.0"
 
     if ke_method == 'PositionRank':
         positionrank = spacy.load(spacy_model_path)
         positionrank.add_pipe("positionrank")
 
+    elif ke_method == 'TextRank':
+        textrank = spacy.load(spacy_model_path)
+        textrank.add_pipe("textrank")
+
+    elif ke_method == 'TopicRank':
+        topicrank = spacy.load(spacy_model_path)
+        topicrank.add_pipe("topicrank")
+
     elif ke_method == 'KPMiner':
         kpminer_spacy = spacy.load(spacy_model_path)
         kpminer_weights_file = r'/home/georgematlis/Keyword_Extraction/lib/python3.12/site-packages/pke/models/df-semeval2010.tsv.gz' # Alternative: r'../pke/models/df-semeval2010.tsv.gz'
 
-    elif ke_method == 'YAKE': # YAKE extracts 20 keywords or keyphrases by default
+    elif ke_method == 'YAKE': # YAKE extracts 20 keywords/keyphrases by default
         yake_extractor = yake.KeywordExtractor(lan='en', n=3, dedupLim=0.9, dedupFunc='seqm', windowsSize=1, top=T, features=None)
 
     elif ke_method == 'MPRank':
@@ -102,7 +110,7 @@ if __name__ == '__main__':
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
 
     result_path = os.path.join('results', 
-                               f"{ke_method}/{ke_method}" if ke_method != 'YAKE' else f"{ke_method}/YAKE_T{T}", 
+                               f"{ke_method}/{ke_method}" if ke_method != 'YAKE' else f"{ke_method}/{ke_method}_T{T}", 
                                f'{timestamp}_{datasets_max_len}') # Create a folder like: results/RAKE/RAKE/{timestamp}_{datasets_max_len} or results/YAKE/YAKE_T5/{timestamp}_{datasets_max_len}
     
     print(f"Results path: {result_path}")
@@ -127,19 +135,21 @@ if __name__ == '__main__':
         
         with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), "r", encoding='utf-8') as f: # data/processed/{dataset_name}_MAX{datasets_max_len}.jsonl
             lines = f.readlines() # Each line is a document of a specific dataset
+
+            # Each line is a dictionary
             data_list = [json.loads(line.strip()) for line in lines] # data_list contains information about the document (doc, label, stemmed_label)
 
 
-        output_list = [] # Keeps all available information for each document of the dataset
-        perkeyphrase_no_tokens = []
-        perdoc_no_keyphrases = []
+        output_list = []
+        perkeyphrase_no_tokens = [] # Number of tokens (words, numbers, symbols) each keyphrase has
+        perdoc_no_keyphrases = [] # Number of keyphrases extracted by a KE method for some dataset
 
         perdoc_times = []
         perdataset_start_time = time.perf_counter()
 
-        for j_data in tqdm(data_list): # For JSON data in data_list (for each document)
+        for j_data in tqdm(data_list): 
 
-            doc = j_data['doc'] # Take the document (size of {datasets_max_len} tokens) labeled as 'doc'
+            doc = j_data['doc'] 
 
             perdoc_start_time = time.perf_counter()
 
@@ -158,6 +168,14 @@ if __name__ == '__main__':
             elif ke_method == 'PositionRank':
                 positionrank_keyphrases = positionrank(doc)
                 keyphrases = [kw.text for kw in positionrank_keyphrases._.phrases[:]]
+
+            elif ke_method == 'TextRank':
+                textrank_keyphrases = textrank(doc)
+                keyphrases = [kw.text for kw in textrank_keyphrases._.phrases[:]]
+
+            elif ke_method == 'TopicRank':
+                topicrank_keyphrases = topicrank(doc)
+                keyphrases = [kw.text for kw in topicrank_keyphrases._.phrases[:]]
             
             elif ke_method == 'KPMiner':
                 kpminer_extractor = pke.unsupervised.KPMiner()
@@ -177,13 +195,14 @@ if __name__ == '__main__':
             # ==================================================================================
 
             perdoc_times.append(time.perf_counter() - perdoc_start_time)
-            log = {} # log keeps all the necessary information of the current document
+
+            log = {} 
             log['final_pred_keyphrase'] = [pred.strip() for pred in keyphrases]
-            log['doc'] = doc
             log['label'] = j_data['label']
-            log['stemmed_label'] = j_data['stemmed_label']
+            log['normalized_label'] = j_data['normalized_label']
+            log['doc'] = doc
             
-            if ke_method == 'YAKE': 
+            if ke_method in ['YAKE', 'TopicRank']: 
                 log['title'] = j_data['title']
             
             output_list.append(log)
@@ -204,7 +223,7 @@ if __name__ == '__main__':
                 f.write(json.dumps(json_data, ensure_ascii=False) + '\n')
 
 
-        if ke_method == 'YAKE':
+        if ke_method in ['YAKE', 'TopicRank']:
 
             jsonl_lines = []
             for log in output_list:
@@ -212,17 +231,60 @@ if __name__ == '__main__':
                 line['title'] = log['title']
                 line['keyphrases'] = log['final_pred_keyphrase']
                 line['label'] = log['label']
-                line['stemmed_label'] = log['stemmed_label']
+                line['normalized_label'] = log['normalized_label']
                 jsonl_lines.append(line)
 
-            with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}_YAKE_{T}.jsonl'), "w", encoding='utf-8') as f:
+            with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}_{ke_method}_{T}.jsonl' if ke_method == 'YAKE' else f'{dataset_name}_MAX{datasets_max_len}_{ke_method}.jsonl'), "w", encoding='utf-8') as f:
                 for json_data in jsonl_lines:
                     f.write(json.dumps(json_data, ensure_ascii=False) + '\n')
 
 
+        stats = {
+            "KE": ke_method,
+            "Dataset": dataset_name,
+            "T": T,
+            "Timestamp": timestamp,
+            "Datasets_Max_Length": datasets_max_len,
+            "Category": "A",
+
+            "Runtime": {
+                "Per_Document": {
+                    "Mean": float(np.mean(perdoc_times)),
+                    "Median": float(np.median(perdoc_times)),
+                    "Min": float(np.min(perdoc_times)),
+                    "Max": float(np.max(perdoc_times))
+                },
+                "Per_Dataset": float(perdataset_end_time - perdataset_start_time)
+            },
+
+            "Keywords": {
+                "Count": {
+                    "Mean": float(np.mean(perdoc_no_keyphrases)),
+                    "Median": float(np.median(perdoc_no_keyphrases)),
+                    "Min": int(np.min(perdoc_no_keyphrases)),
+                    "Max": int(np.max(perdoc_no_keyphrases))
+                },
+
+                "Length": {
+                    "Mean": float(np.mean(perkeyphrase_no_tokens)),
+                    "Median": float(np.median(perkeyphrase_no_tokens))
+                }
+            },
+
+            "Vocabulary": {
+                "Avg_Doc_Words": float(perdataset_avg_no_words),
+                "Non_Word_Ratio": float(total_non_word_count) / total_word_count if total_word_count else 0.0
+            }
+        }
+
+        with open(os.path.join(result_path, f"{dataset_name}_stats.json"), "w", encoding="utf-8") as f:
+            json.dump(stats, f, indent=4)
+
+
+        """
         with open(os.path.join(result_path, f'{dataset_name}_stats.txt'), "w", encoding='utf-8') as f:
             
-            f.write(f'\n===== {ke_method if ke_method != 'YAKE' else ke_method + str(T)},{dataset_name},{timestamp} =====\n')
+            f.write(f'\n===== {ke_method if ke_method not in ['YAKE', 'TopicRank'] else ke_method + str(T)},{dataset_name},{timestamp} =====\n')
             f.write(f'Time (mean) per document: {np.mean(perdoc_times)} sec\n')
             f.write(f'Time (median) per document: {np.median(perdoc_times)} sec\n')
             f.write(f'Time (maximum) per document: {max(perdoc_times)} sec\n')
@@ -243,5 +305,6 @@ if __name__ == '__main__':
             f.write(f'Average number of words for the entire dataset: {perdataset_avg_no_words}\n')
             #f.write(f'Percentage (%) of non-words multiplied by the maximum number of keyphrases: {(total_non_word_count / total_word_count) * max(perdoc_no_keyphrases)}\n')
             #f.write(f'Average number of words for the entire dataset multiplied by the maximum number of keyphrases: {perdataset_avg_no_words * max(perdoc_no_keyphrases)}\n')
+        """
 
         
