@@ -63,6 +63,7 @@ def truncate_documents(tokenizer, data_list, doc_lengths, budget):
     prepared = []
 
     for j_data, length in zip(data_list, doc_lengths):
+
         if length > budget:
             token_ids = tokenizer(j_data['doc'], add_special_tokens=False)["input_ids"]
             truncated_ids = token_ids[:budget]
@@ -91,15 +92,18 @@ if __name__ == '__main__':
     parser.add_argument('--data_path', type=str, default='data/processed', help="Directory path of test datasets")
     parser.add_argument('--max_new_tokens', type=str, default='64', help="Maximum number of tokens to generate")
     parser.add_argument('--auth_token', type=str, default='', help="Authentication token for Llama")
-    parser.add_argument('--T', type=str, default='10', help="Number of keywords to extract")
+    parser.add_argument('--T', type=str, default='10', help="Number of keyphrases to extract")
+
     parser.add_argument('--datasets_max_len', type=str, default='FULL',
                          help="If an integer string, used directly as a fixed document token budget. "
                               "If a non-integer string (e.g. 'FULL'), triggers mean/median-based budget calculation.")
+
     parser.add_argument('--length_stat', type=str, default='mean', choices=['mean', 'median'],
                          help="Which statistic to use as the document token budget when datasets_max_len is not an integer")
-    parser.add_argument('--gpu_memory_utilization', type=str, default='0.85', help="Fraction of GPU VRAM vLLM is allowed to claim")
-    args = parser.parse_args()
 
+    parser.add_argument('--gpu_memory_utilization', type=str, default='0.85', help="Fraction of GPU VRAM vLLM is allowed to claim")
+    
+    args = parser.parse_args()
     model_name = args.model_name
     data_path = args.data_path
     max_new_tokens = int(args.max_new_tokens)
@@ -119,16 +123,16 @@ if __name__ == '__main__':
 
     tokenizer = AutoTokenizer.from_pretrained(model_name, token=auth_token)
 
-    prompt_overhead_tokens = get_prompt_overhead_tokens(tokenizer, prompt_template, task_instruction)
+    prompt_overhead_tokens = get_prompt_overhead_tokens(tokenizer, prompt_template, task_instruction) # Get number of tokens of task instruction and prompt symbols
 
     sampling_params = SamplingParams(
         temperature=0,
         max_tokens=max_new_tokens,
-        stop=["<|eot_id|>"]
+        stop=["<|eot_id|>"] # The final string segment in prompt_template that signals the end of the entire prompt
     )
 
     settings = {
-        'model_name': model_name,
+        'model_name': "Llama3vLLM",
         'task_instruction': task_instruction,
         'max_new_tokens': max_new_tokens,
         'T': T,
@@ -179,7 +183,7 @@ if __name__ == '__main__':
             lines = f.readlines()
             data_list = [json.loads(line.strip()) for line in lines]
 
-        if mode == 'fixed':
+        if mode == 'fixed': 
             budget = datasets_max_len_value
             mean_len = None
             median_len = None
@@ -201,7 +205,7 @@ if __name__ == '__main__':
             print(f"  Mean doc length: {mean_len:.2f}  |  Median doc length: {median_len:.2f}  |  Using: {length_stat}")
         print(f"  Documents truncated: {num_truncated} / {len(prepared_docs)}")
 
-        prompts = [prompt_template.format(task_instruction, d["doc_text"]) for d in prepared_docs]
+        prompts = [prompt_template.format(task_instruction, d["doc_text"]) for d in prepared_docs] # Create the complete prompts to input the vLLM engine
 
         # Engine created/reloaded per dataset (intentional) -- NOT timed
         llm = LLM(
@@ -281,11 +285,11 @@ if __name__ == '__main__':
 
             "Runtime": {
                 "Per_Document": {
-                                    "Mean": -1.0,
-                                    "Median": -1.0,
-                                    "Min": -1.0,
-                                    "Max": -1.0
-                                },
+                    "Mean": -1.0,
+                    "Median": -1.0,
+                    "Min": -1.0,
+                    "Max": -1.0
+                },
                 "Per_Dataset": float(total_time)
             },
 
