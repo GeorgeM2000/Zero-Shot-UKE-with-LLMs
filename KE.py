@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 import argparse
-import pytextrank # Required if you want to use PositionRank, TextRank, TopicRank
+import pytextrank # Required if you want to use PositionRank, TextRank, and TopicRank
 import pke # Required if you want to use KPMiner, MPRank, and other KE methods 
 import spacy
 import yake
