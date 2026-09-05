@@ -391,7 +391,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', type=str, default='data', help="Directory path of test datasets")
     parser.add_argument('--max_len', type=str, default='FULL', help="Maximum length of input document") # Alternatives: 1024 2048 4096
-    parser.add_argument('--word_norm', type=str, default='Stem', help="Word normalization technique")
+    parser.add_argument('--word_norm', type=str, default='Lemma', help="Word normalization technique")
     args = parser.parse_args()
 
     data_path = args.data_path # data/
@@ -482,7 +482,7 @@ if __name__ == '__main__':
             labels_normalized.append(labels_n)
             docs.append(doc)
         
-        assert len(docs) == len(labels) == len(labels_normalized) == len(titles), "The lengths of doc_list, labels, labels_normalized and titles are not equal."
+        assert len(docs) == len(labels) == len(labels_normalized) == len(titles), "The lengths of docs, labels, labels_normalized and titles are not equal."
 
         print(f"\nThe maximum document length for dataset {dataset_name} is {max(doc_lens)}")
         exceeded_max_doc_len = np.array(exceeded_max_doc_len)

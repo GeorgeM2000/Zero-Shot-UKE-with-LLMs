@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 import argparse
-import pytextrank # Required if you want to use PositionRank, TextRank, TopicRank
+import pytextrank # Required if you want to use PositionRank, TextRank, and TopicRank
 import pke # Required if you want to use KPMiner, MPRank, and other KE methods 
 import spacy
 import string
@@ -23,10 +23,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ke_method', type=str, default='RAKE', help="The keyword/keyphrase extraction method") 
     parser.add_argument('--data_path', type=str, default='data/processed', help="Directory path of test datasets") 
-    parser.add_argument('--similarity_technique', type=str, default='NEb', help="Similarity technique (Embedding-based or Non-Embedding-based)") 
+    parser.add_argument('--similarity_technique', type=str, default='Eb', choices=['Eb', 'NEb'], help="Similarity technique (Embedding-based or Non-Embedding-based)") 
     parser.add_argument('--similarity_threshold', type=str, default='0.25', help="Similarity threshold")
     parser.add_argument('--datasets_max_len', type=str, default='FULL', help="Maximum length of test datasets")
-    args = parser.parse_args() # Parse the arguments
+    args = parser.parse_args() 
 
 
     sim_threshold = float(args.similarity_threshold)
@@ -94,7 +94,7 @@ if __name__ == '__main__':
         
         with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), "r", encoding='utf-8') as f: # data/processed/{dataset_name}_MAX{datasets_max_len}.jsonl
             lines  = f.readlines() 
-            data_list = [json.loads(line.strip()) for line in lines] # data_list contains information about the document (doc, label, stemmed_label)
+            data_list = [json.loads(line.strip()) for line in lines] # data_list contains information about the document (doc, label, normalized_label)
 
         output_list = []
         perkeyphrase_no_tokens = [] # Number of tokens (words, numbers, symbols) each keyphrase has
@@ -105,11 +105,11 @@ if __name__ == '__main__':
 
         for j_data in tqdm(data_list): 
 
-            doc = j_data['doc']
-
             perdoc_start_time = time.perf_counter()
 
-            # =============================== KE Process ========================================
+            doc = j_data['doc']
+
+            # ======================================== KE Process ========================================
 
             if ke_method == 'RAKE':
                 rake_extractor = Rake(ranking_metric=Metric.DEGREE_TO_FREQUENCY_RATIO)
@@ -127,7 +127,7 @@ if __name__ == '__main__':
             
             elif ke_method == 'KPMiner':
                 kpminer_extractor = pke.unsupervised.KPMiner()
-                kpminer_extractor.load_document(input = doc, language = 'en', spacy_model=spacy_model)
+                kpminer_extractor.load_document(input = doc, language = 'en', spacy_model = spacy_model)
                 kpminer_extractor.candidate_selection(lasf = 5, cutoff = 200)
                 df = pke.load_document_frequency_file(input_file = kpminer_weights_file)
                 kpminer_extractor.candidate_weighting(df = df, alpha = 2.3, sigma = 3.0)
@@ -135,14 +135,14 @@ if __name__ == '__main__':
 
             else:
                 mprank_extractor = pke.unsupervised.MultipartiteRank()
-                mprank_extractor.load_document(input = doc, stoplist = stoplist, language = 'en', spacy_model=spacy_model)
+                mprank_extractor.load_document(input = doc, stoplist = stoplist, language = 'en', spacy_model = spacy_model)
                 mprank_extractor.candidate_selection(pos = {'NOUN', 'PROPN', 'ADJ'})
                 mprank_extractor.candidate_weighting(alpha = 1.1, threshold = 0.74, method = 'average')
                 keyphrases = [kw for kw,_ in mprank_extractor.get_all_sorted()]
      
-            # ===================================================================================
+            # ===========================================================================================
 
-        
+
             # =============================== Clustering Process ========================================
             if sim_technique == 'Eb': 
                 # Generate an embedding for each keyword/keyphrase 
@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
             # ===========================================================================================
 
-            perdoc_times.append(time.perf_counter() - perdoc_start_time)
+            
 
             log = {} 
             log['final_pred_keyphrase'] = [pred.strip() for pred in keyphrases]
@@ -176,6 +176,7 @@ if __name__ == '__main__':
             log['doc'] = doc
             
             output_list.append(log)
+            perdoc_times.append(time.perf_counter() - perdoc_start_time)
 
 
         perdataset_end_time = time.perf_counter()
@@ -190,7 +191,7 @@ if __name__ == '__main__':
 
         
         with open(os.path.join(result_path, f'{dataset_name}_result.json'), "w", encoding='utf-8') as f: # The results file is located in: results/RAKE/HAC_NEb_25/{timestamp}_{datasets_max_len}/{dataset_name}_result.json
-            for json_data in output_list: # For each log in output_list
+            for json_data in output_list: 
                 f.write(json.dumps(json_data, ensure_ascii=False) + '\n')
 
 
