@@ -37,9 +37,9 @@ def next_power_of_two(x):
 
 """
  get_data_files() returns:
-    1) The test datasets in data/processed that were created using a KE method and a clustering technique
+    1) The test datasets in data/processed that were created using a KE method with or without a clustering method
     2) The maximum token length of all test datasets
-    3) The mean token length of all test datasets
+    3) The mean or median token length of all test datasets
 
 """
 def get_data_files(data_path, T):
@@ -47,7 +47,7 @@ def get_data_files(data_path, T):
     patterns = [
         re.compile( r"^(.+)_MAX([A-Z0-9]+)_(.+)\.jsonl$"), # Matches the datasets created using a KE method (except YAKE) with HAC
         re.compile(rf"^(.+)_MAX([A-Z0-9]+)_YAKE_{T}\.jsonl$"), # Matches the dataset created using YAKE for a given value of T
-        re.compile(rf"^(.+)_MAX([A-Z0-9]+)_TopicRank\.jsonl$")
+        re.compile(rf"^(.+)_MAX([A-Z0-9]+)_TopicRank\.jsonl$") # Matches the dataset created using TopicRank
     ] 
 
     data_files = [
@@ -92,9 +92,9 @@ if __name__ == '__main__':
     parser.add_argument('--max_new_tokens', type=str, default='64', help="Maximum number of tokens to generate")
     parser.add_argument('--cuda', type=str, default='0', help="GPU") # If there is a GPU, it is labeled as 0
     parser.add_argument('--auth_token', type=str, default='', help="Authentication token for Llama") 
-    parser.add_argument('--T', type=str, default='10', help="Number of keywords to extract")
+    parser.add_argument('--T', type=str, default='10', help="Number of keyphrases to extract")
     parser.add_argument('--datasets_max_len', type=str, default='FULL', help="Maximum length of test datasets")
-    args = parser.parse_args() # Parse the arguments
+    args = parser.parse_args() 
 
     model_name = args.model_name
     data_path = args.data_path
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     for data_file in data_files: print(data_file)
 
     print(f"\nThe maximum document length of the test datasets is {max_doc_len}")
-    print(f"The mean document length of the test datasets is {mean_doc_len}\n")
+    print(f"The average document length of the test datasets is {mean_doc_len}\n")
 
     choice = input("Continue? (y/n): ").strip().lower()
 
@@ -167,11 +167,10 @@ if __name__ == '__main__':
 
 
     """
-        This for loop will process all test datasets in data/processed created using: 
-            1) a KE method 
-            2) a clustering technique 
-            3) a similarity technique and 
-            4) a similarity threshold
+        This for loop will process all test datasets in data/processed created using a KE method with or without:
+                1) a clustering technique 
+                2) a similarity technique and 
+                3) a similarity threshold
     """
 
     for data_file in data_files:
@@ -196,6 +195,8 @@ if __name__ == '__main__':
 
         for j_data in tqdm(data_list): 
 
+            perdoc_start_time = time.perf_counter()
+
             doc = f"TITLE: {j_data['title']}. KEYWORDS: {'; '.join(j_data['keyphrases'][:T])}"
 
             prompt = prompt_template.format(task_instruction, doc) 
@@ -219,7 +220,7 @@ if __name__ == '__main__':
                                truncation=True # if the prompt exceeds {tokenizer_max_len} tokens, it is cut off (usually from the end, depending on tokenizer settings
                                ).to(device)
             
-            perdoc_start_time = time.perf_counter()
+            
 
             # =============================== KE Process ========================================
 
@@ -234,7 +235,7 @@ if __name__ == '__main__':
                                          max_length=None)
              
             # ==================================================================================
-            perdoc_times.append(time.perf_counter() - perdoc_start_time)
+            
             
             # Takes the generated token IDs (outputs[0], the first sequence) and converts them back into human-readable text using the tokenizer
             outputs_str = tokenizer.decode(outputs[0]) 
@@ -251,6 +252,7 @@ if __name__ == '__main__':
             log['doc'] = doc
 
             output_list.append(log)
+            perdoc_times.append(time.perf_counter() - perdoc_start_time)
 
 
         perdataset_end_time = time.perf_counter()

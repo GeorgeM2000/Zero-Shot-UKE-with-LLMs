@@ -86,6 +86,7 @@ def truncate_documents(tokenizer, data_list, doc_lengths, budget):
 if __name__ == '__main__':
 
     prompt_template = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{} <|eot_id|><|start_header_id|>user<|end_header_id|>\n\nText: {}<|eot_id|>"
+                      
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="Llama3 path")
@@ -95,8 +96,8 @@ if __name__ == '__main__':
     parser.add_argument('--T', type=str, default='10', help="Number of keyphrases to extract")
 
     parser.add_argument('--datasets_max_len', type=str, default='FULL',
-                         help="If an integer string, used directly as a fixed document token budget. "
-                              "If a non-integer string (e.g. 'FULL'), triggers mean/median-based budget calculation.")
+                         help="If an integer string, used directly as a fixed document token budget"
+                              "If a non-integer string (e.g. 'FULL'), triggers mean/median-based budget calculation")
 
     parser.add_argument('--length_stat', type=str, default='mean', choices=['mean', 'median'],
                          help="Which statistic to use as the document token budget when datasets_max_len is not an integer")
@@ -233,10 +234,10 @@ if __name__ == '__main__':
             log = {}
             log['final_pred_keyphrase'] = [pred.strip() for pred in pred_keyphrases_seq.split(';')]
             log['label'] = j_data['label']
+            log['generated_output'] = generated_output_str
             log['normalized_label'] = j_data['normalized_label']
             log['was_truncated'] = prepared["was_truncated"]
             log['orig_doc_len'] = prepared["orig_len"]
-            log['generated_output'] = generated_output_str
             log['prompt'] = prompt_template.format(task_instruction, prepared["doc_text"])
             log['doc'] = prepared["doc_text"]
             

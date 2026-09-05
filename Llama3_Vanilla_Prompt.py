@@ -69,7 +69,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_new_tokens', type=str, default='64', help="Maximum number of tokens to generate")
     parser.add_argument('--cuda', type=str, default='0', help="GPU") # If there is a GPU, it is labeled as 0
     parser.add_argument('--auth_token', type=str, help="Authentication token for Llama") 
-    parser.add_argument('--T', type=str, default='10', help="Number of keywords to extract")
+    parser.add_argument('--T', type=str, default='10', help="Number of keyphrases to extract")
     parser.add_argument('--datasets_max_len', type=str, default='FULL', help="Maximum length of test datasets")
     args = parser.parse_args() 
 
@@ -174,6 +174,8 @@ if __name__ == '__main__':
         
         for j_data in tqdm(data_list): 
 
+            perdoc_start_time = time.perf_counter()
+
             doc = j_data['doc'] 
             prompt = prompt_template.format(task_instruction, doc) # Use the prompt template to insert the document into the prompt and the task instruction
             
@@ -195,13 +197,11 @@ if __name__ == '__main__':
                                max_length=tokenizer_max_len, # Caps the sequence at {tokenizer_max_len} tokens.
                                truncation=True # if the prompt exceeds {tokenizer_max_len} tokens, it is cut off (usually from the end, depending on tokenizer settings
                                ).to(device) 
-            
-            perdoc_start_time = time.perf_counter()
 
             # =============================== KE Process ========================================
 
             # Give the input to the LLM and generate an output
-            with torch.inference_mode(): #with torch.no_grad(): # Disables gradient computation → faster and lower memory during inference
+            with torch.inference_mode(): # with torch.no_grad(): # Disables gradient computation → faster and lower memory during inference
                 outputs = model.generate(**inputs, # Moves tokenized inputs to the same device as the model (e.g., GPU)
                                          max_new_tokens=max_new_tokens, # Limits how many tokens the model generates 
                                          use_cache=True, # Reuses past key/value states → speeds up generation
@@ -212,7 +212,6 @@ if __name__ == '__main__':
              
             # ==================================================================================
 
-            perdoc_times.append(time.perf_counter() - perdoc_start_time)
             
             # Takes the generated token IDs (outputs[0], the first sequence) and converts them back into human-readable text using the tokenizer
             outputs_str = tokenizer.decode(outputs[0]) 
@@ -229,6 +228,7 @@ if __name__ == '__main__':
             log['doc'] = doc
         
             output_list.append(log)
+            perdoc_times.append(time.perf_counter() - perdoc_start_time)
 
 
         perdataset_end_time = time.perf_counter()

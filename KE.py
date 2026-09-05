@@ -149,9 +149,9 @@ if __name__ == '__main__':
 
         for j_data in tqdm(data_list): 
 
-            doc = j_data['doc'] 
-
             perdoc_start_time = time.perf_counter()
+
+            doc = j_data['doc'] 
 
             # =============================== KE Process ========================================
             
@@ -194,8 +194,6 @@ if __name__ == '__main__':
             
             # ==================================================================================
 
-            perdoc_times.append(time.perf_counter() - perdoc_start_time)
-
             log = {} 
             log['final_pred_keyphrase'] = [pred.strip() for pred in keyphrases]
             log['label'] = j_data['label']
@@ -206,6 +204,7 @@ if __name__ == '__main__':
                 log['title'] = j_data['title']
             
             output_list.append(log)
+            perdoc_times.append(time.perf_counter() - perdoc_start_time)
 
 
         perdataset_end_time = time.perf_counter()
