@@ -47,20 +47,20 @@ OUTPUT_CSV = "/path/to/your/output/ke_stats_table.csv"
 # (display_name, dotted_path_in_json)
 STAT_METRICS = [
     ("Runtime Mean",        "Runtime.Per_Document.Mean"),
-    ("Runtime Median",      "Runtime.Per_Document.Median"),
-    ("Runtime Min",         "Runtime.Per_Document.Min"),
-    ("Runtime Max",         "Runtime.Per_Document.Max"),
+    #("Runtime Median",      "Runtime.Per_Document.Median"),
+    #("Runtime Min",         "Runtime.Per_Document.Min"),
+    #("Runtime Max",         "Runtime.Per_Document.Max"),
     ("Runtime Per Dataset", "Runtime.Per_Dataset"),
 
     ("Keywords Count Mean",   "Keywords.Count.Mean"),
-    ("Keywords Count Median", "Keywords.Count.Median"),
-    ("Keywords Count Min",    "Keywords.Count.Min"),
-    ("Keywords Count Max",    "Keywords.Count.Max"),
+    #("Keywords Count Median", "Keywords.Count.Median"),
+    #("Keywords Count Min",    "Keywords.Count.Min"),
+    #("Keywords Count Max",    "Keywords.Count.Max"),
 
     ("Keywords Length Mean",   "Keywords.Length.Mean"),
-    ("Keywords Length Median", "Keywords.Length.Median"),
+    #("Keywords Length Median", "Keywords.Length.Median"),
 
-    ("Avg Doc Words",  "Vocabulary.Avg_Doc_Words"),
+    #("Avg Doc Words",  "Vocabulary.Avg_Doc_Words"),
     ("Non Word Ratio", "Vocabulary.Non_Word_Ratio"),
 ]
 
@@ -84,7 +84,7 @@ TARGET_MAX_LEN = "FULL"
 # (present in every stats JSON) and groups are listed in this order. The
 # order of KE methods *within* a group does not matter (alphabetical).
 # This list must contain every category value that appears in your files.
-GROUP_ORDER = ["A", "C", "D", "B"]
+GROUP_ORDER = ["A", "B", "C", "D", "E", "F", "G", "H"]
 
 # ---- Config for the second ("merged runtime") table -----------------------
 # The primary category whose KE method names become the rows of the second

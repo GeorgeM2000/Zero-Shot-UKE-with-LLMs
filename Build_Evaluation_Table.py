@@ -54,7 +54,7 @@ TARGET_MAX_LEN = "FULL"
 # their "Category" field (present in every evaluation.json) and groups are
 # listed in this order. Order of KE methods *within* a group does not
 # matter (alphabetical). Must contain every category value in your files.
-GROUP_ORDER = ["A", "C", "D", "B"]
+GROUP_ORDER = ["A", "B", "C", "D", "E", "F"]
 
 
 # Known dataset names, in the order you want them to appear as columns.
@@ -114,7 +114,7 @@ def find_evaluation_files(root_folder, target_max_len, filename):
     return sorted(found)
 
 
-def get_nested(d, path_keys):
+def get_nested(d, path_keys): # {d} is the record (dict) and {path_keys} is the metric
     """Fetch a value from a nested dict using a list of literal keys.
     Returns None if any part of the path is missing."""
     current = d
@@ -123,6 +123,7 @@ def get_nested(d, path_keys):
             current = current[key]
         else:
             return None
+
     return current
 
 
@@ -160,6 +161,7 @@ def build_table(data, ke_methods, metrics, output_csv, datasets_max_len):
             for _display_name, path_keys in metrics:
                 value = get_nested(source, path_keys)
                 row.append("" if value is None else value)
+
         data_rows.append(row)
 
     os.makedirs(os.path.dirname(output_csv) or ".", exist_ok=True)
@@ -173,6 +175,10 @@ def build_table(data, ke_methods, metrics, output_csv, datasets_max_len):
 
     print(f"Wrote table with {len(ke_methods)} KE method(s) x "
           f"{len(columns)} column(s) x {k} sub-column(s) to:\n  {output_csv}")
+
+
+
+
 
 
 def main():
@@ -220,6 +226,9 @@ def main():
                   f"overwriting previous entry for this KE method.")
         data[ke] = record
 
+
+
+
     if max_len_warnings:
         print("\n[WARNING] Inconsistent 'Datasets_Max_Len' values found "
               f"(keeping the first one seen: {datasets_max_len}):")
@@ -243,6 +252,9 @@ def main():
             f"{unknown_categories}. Add them to GROUP_ORDER (in your desired group order)."
         )
  
+
+
+
     ke_methods = sorted(
         data.keys(),
         key=lambda ke: (GROUP_ORDER.index(data[ke]["Category"]), ke)
