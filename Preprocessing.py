@@ -95,7 +95,7 @@ def get_MDPI_data(file_path="data/MDPI/MDPI_Articles.json"):
     labels = {}
     with open(file_path, 'r', encoding='utf-8') as f:
         json_text = f.readlines()
-        for i, line in tqdm(enumerate(json_text), desc="Loading Doc ..."):
+        for i, line in tqdm(enumerate(json_text), desc="Loading MDPI Doc ..."):
             try:
                 jsonl = json.loads(line)
                 keywords = jsonl['keywords'].lower().split(";")
@@ -116,13 +116,13 @@ def get_MDPI_data(file_path="data/MDPI/MDPI_Articles.json"):
 
 
 
-def get_long_data(file_path="data/nus/nus_test.json"):
+def get_long_data(dataset_name, file_path="data/nus/nus_test.json"):
     data = {}
     titles = {}
     labels = {}
     with open(file_path, 'r', encoding='utf-8') as f:
         json_text = f.readlines()
-        for i, line in tqdm(enumerate(json_text), desc="Loading Doc ..."):
+        for i, line in tqdm(enumerate(json_text), desc=f"Loading {dataset_name} Doc ..."):
             try:
                 jsonl = json.loads(line)
                 keywords = jsonl['keywords'].lower().split(";")
@@ -148,18 +148,19 @@ def get_long_data(file_path="data/nus/nus_test.json"):
     return data,labels,titles
 
 
-def get_short_data(file_path="data/kp20k/kp20k_valid2k_test.json"):
+def get_short_data(dataset_name, file_path="data/kp20k/kp20k_valid2k_test.json"):
     data = {}
     titles = {}
     labels = {}
     with open(file_path, 'r', encoding='utf-8') as f:
         json_text = f.readlines()
-        for i, line in tqdm(enumerate(json_text), desc="Loading Doc ..."):
+        for i, line in tqdm(enumerate(json_text), desc=f"Loading {dataset_name} Doc ..."):
             try:
                 jsonl = json.loads(line)
                 keywords = jsonl['keywords'].lower().split(";")
                 title = jsonl['title']
                 abstract = jsonl['abstract']
+
                 doc = title + ". " + abstract
                 doc = re.sub(r'\. ', ' . ', doc)
                 doc = re.sub(', ', ' , ', doc)
@@ -353,7 +354,7 @@ def get_inspec_data(file_path="data/Inspec"):
     return data,labels
 
 
-def get_semeval2017_data(data_path="data/SemEval2017/docsutf8",labels_path="data/SemEval2017/keys"):
+def get_semeval2017_data(data_path="data/SemEval2017/docsutf8", labels_path="data/SemEval2017/keys"):
 
     data = {}
     labels = {}
@@ -391,7 +392,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', type=str, default='data', help="Directory path of test datasets")
     parser.add_argument('--max_len', type=str, default='FULL', help="Maximum length of input document") # Alternatives: 1024 2048 4096
-    parser.add_argument('--word_norm', type=str, default='Lemma', help="Word normalization technique")
+    parser.add_argument('--word_norm', type=str, default='Stem', choices=['Lemma', 'Stem'], help="Word normalization technique")
     args = parser.parse_args()
 
     data_path = args.data_path # data/
@@ -405,8 +406,7 @@ if __name__ == '__main__':
         # With PorterStemmer, matching candidate keywords to reference keywords becomes easier (loose matching)
         porter = nltk.PorterStemmer()
 
-    dataset_list = [#'Inspec', 
-                    #'SemEval2017',
+    dataset_list = [
                     'MDPI', 
                     'SemEval2010', 
                     'DUC2001' 
@@ -425,16 +425,16 @@ if __name__ == '__main__':
             data, references, titles_dict = get_duc2001_data(dataset_dir)
 
         elif dataset_name == "nus" :
-            data, references, titles_dict = get_long_data(dataset_dir + "/nus_test.json")
+            data, references, titles_dict = get_long_data(dataset_name, file_path=dataset_dir + "/nus_test.json")
 
         elif dataset_name == "krapivin":
-            data, references, titles_dict = get_long_data(dataset_dir + "/krapivin_test.json")
+            data, references, titles_dict = get_long_data(dataset_name, file_path=dataset_dir + "/krapivin_test.json")
 
         elif dataset_name == "kp20k":
-            data, references, titles_dict = get_short_data(dataset_dir + "/kp20k_valid200_test.json")
+            data, references, titles_dict = get_short_data(file_path=dataset_dir + "/kp20k_valid200_test.json")
 
         elif dataset_name == "SemEval2010":
-            data, references, titles_dict = get_short_data(dataset_dir + "/semeval_test.json")
+            data, references, titles_dict = get_short_data(dataset_name, file_path=dataset_dir + "/semeval_test.json")
             
         elif dataset_name == "Inspec":
             data, references = get_inspec_data(dataset_dir)
@@ -458,8 +458,10 @@ if __name__ == '__main__':
             # Get normalized labels and document segments
 
             # {labels} are the true keywords
+            # {labels_n} are the normalized labels
             # {ref} represents the keyword or the keyphrase
             # {references[key]} returns a list of keywords/keyphrases for a single document given the key
+
             labels.append([ref.replace(" \n", "") for ref in references[key]]) 
 
             if word_norm_technique == "Lemma":
@@ -467,8 +469,8 @@ if __name__ == '__main__':
 
             else:
                 labels_n = [] # {labels_n} are the true normalized keywords
-                for l in references[key]: # {l} represents the keyword or the keyphrase
-                    tokens = l.split()
+                for ref in references[key]: # {l} represents the keyword or the keyphrase
+                    tokens = ref.split()
                     labels_n.append(' '.join(porter.stem(t) for t in tokens))
             
             doc_lens.append(len(doc.split()))
@@ -482,7 +484,7 @@ if __name__ == '__main__':
             labels_normalized.append(labels_n)
             docs.append(doc)
         
-        assert len(docs) == len(labels) == len(labels_normalized) == len(titles), "The lengths of docs, labels, labels_normalized and titles are not equal."
+        assert len(docs) == len(labels) == len(labels_normalized) == len(titles), r"The lengths of {docs}, {labels}, {labels_normalized} and {titles} are not equal."
 
         print(f"\nThe maximum document length for dataset {dataset_name} is {max(doc_lens)}")
         exceeded_max_doc_len = np.array(exceeded_max_doc_len)

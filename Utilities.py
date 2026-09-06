@@ -7,12 +7,15 @@ from sklearn.feature_extraction.text import CountVectorizer
 # Count how many words and non-words exist in the extracted keyphrases list (per dataset)
 # Additionally, calculate the average number of words per extracted keyphrase for the entire dataset
 def process_keyphrases(perdoc_keyphrases):
-    perdoc_avg_no_words = []
+    
+    # Each element in this list will be the average number of words calculated from all the keywords/keyphrases of a document
+    perdoc_avg_no_words = [] 
     
     total_word_count = 0
     total_non_word_count = 0
 
-    for keyphrases_list in perdoc_keyphrases: # {perdoc_keyphrases} is a 2D list. Each inner list contains keyphrases for one document: [keyphrase 1, ..., keyphrase N]
+    # {perdoc_keyphrases} is a 2D list. Each inner list contains keyphrases for one document: [keyphrase 1, ..., keyphrase N]
+    for keyphrases_list in perdoc_keyphrases: 
 
         total_no_words_per_doc = 0
 
@@ -29,6 +32,8 @@ def process_keyphrases(perdoc_keyphrases):
 
         perdoc_avg_no_words.append(total_no_words_per_doc / len(keyphrases_list))
     
+
+    # np.mean(perdoc_avg_no_words) is the average value of all average values that exist in {perdoc_avg_no_words}
     return total_word_count, total_non_word_count, np.mean(perdoc_avg_no_words)
 
 
