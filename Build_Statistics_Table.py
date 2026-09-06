@@ -2,7 +2,7 @@
 Build_Statistics_Table.py
 
 Scans a folder (recursively) for all "*_stats.json" files produced by the
-Keyword Extraction (KE) evaluation pipeline, and aggregates them into a
+Keyword Extraction (KE) methods, and aggregates them into a
 single CSV table:
 
     - Rows    -> KE methods
@@ -402,8 +402,10 @@ def main():
 
         writer.writerow([])  # blank spacer row between tables
         writer.writerow([])
+
         writer.writerow([f"Merged Runtime Table (Category '{PRIMARY_CATEGORY}' "
                           f"+ matched {SECONDARY_CATEGORIES} method)"])
+                          
         writer.writerow(merged_header_row1)
         writer.writerow(merged_header_row2)
         writer.writerows(merged_data_rows)
