@@ -207,7 +207,8 @@ def build_merged_runtime_table(data, ke_categories, datasets):
     secondary-category method's Runtime.Per_Dataset (same dataset).
     Returns (primary_names_sorted, data_rows)."""
 
-    primary_names =   [ke for ke, cat in ke_categories.items() if cat == PRIMARY_CATEGORY]
+    
+    primary_names =   [ke for ke, cat in ke_categories.items() if cat == PRIMARY_CATEGORY and LLM in ke]
     secondary_names = [ke for ke, cat in ke_categories.items() if cat in SECONDARY_CATEGORIES]
  
     primary_to_secondary = match_secondary_to_primary(primary_names, secondary_names)
@@ -408,7 +409,6 @@ def main():
 
 
 
-
     PRIMARY_CATEGORY = PRIMARY_CATEGORY_OPTIONS[1]
     LLM_MODE = LLM_MODE_OPTIONS[1] # vLLM mode
     mrt2_primary_names_sorted, mrt2_merged_data_rows = build_merged_runtime_table(data, ke_categories, datasets)
@@ -419,6 +419,43 @@ def main():
         mrt2_merged_header_row1.append(dataset)
         mrt2_merged_header_row2.append("Runtime.Per_Dataset")
 
+
+
+    
+
+
+
+
+
+
+
+
+    """
+    PRIMARY_CATEGORY = PRIMARY_CATEGORY_OPTIONS[0]
+    LLM = LLM_OPTIONS[1] # Gemma
+    LLM_MODE = LLM_MODE_OPTIONS[0] # Normal mode
+
+    mrt3_primary_names_sorted, mrt3_merged_data_rows = build_merged_runtime_table(data, ke_categories, datasets)
+ 
+    mrt3_merged_header_row1 = ["KE Method"]
+    mrt3_merged_header_row2 = [""]
+    for dataset in datasets:
+        mrt3_merged_header_row1.append(dataset)
+        mrt3_merged_header_row2.append("Runtime.Per_Dataset")
+
+
+
+
+    PRIMARY_CATEGORY = PRIMARY_CATEGORY_OPTIONS[1]
+    LLM_MODE = LLM_MODE_OPTIONS[1] # vLLM mode
+    mrt4_primary_names_sorted, mrt4_merged_data_rows = build_merged_runtime_table(data, ke_categories, datasets)
+ 
+    mrt4_merged_header_row1 = ["KE Method"]
+    mrt4_merged_header_row2 = [""]
+    for dataset in datasets:
+        mrt4_merged_header_row1.append(dataset)
+        mrt4_merged_header_row2.append("Runtime.Per_Dataset")
+    """
 
 
 
@@ -455,6 +492,12 @@ def main():
         writer.writerow(mrt2_merged_header_row1)
         writer.writerow(mrt2_merged_header_row2)
         writer.writerows(mrt2_merged_data_rows)
+
+
+        # REMINDER: When you run experiments with Gemma, add two more merged-runtime tables for Gemma
+
+
+
 
 
     print(f"\nWrote table 1 with {len(ke_methods)} KE method(s) x "
