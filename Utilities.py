@@ -41,16 +41,16 @@ def process_keyphrases(perdoc_keyphrases):
 def count_word_overlap_matches(candidate_keywords, candidate_keywords_orig, reference_keywords, reference_keywords_orig, threshold=0.25):
     """
     Count how many candidate keywords match the reference keywords
-    based on word overlap (>= threshold), using OR logic on stemmed and original versions.
+    based on word overlap (>= threshold), using OR logic on normalized and original versions.
 
     A match means: at least `threshold` fraction of words in a candidate
-    keyword appear in the words of SOME reference keyword (stemmed OR original).
+    keyword appear in the words of SOME reference keyword (normalized OR original).
     """
     matches = 0
     matched_indices = set()  # To avoid matching the same reference keyword multiple times
 
     for cand_kw, cand_kw_orig in zip(candidate_keywords, candidate_keywords_orig):
-        cand_words      = cand_kw.lower().split() # Stemmed words of candidate keyphrase
+        cand_words      = cand_kw.lower().split() # normalized words of candidate keyphrase
         cand_words_orig = cand_kw_orig.lower().split() # Original words of candidate keyphrase
         cand_len = len(cand_words)
 
@@ -61,14 +61,14 @@ def count_word_overlap_matches(candidate_keywords, candidate_keywords_orig, refe
             if idx in matched_indices:
                 continue
 
-            ref_words      = set(ref_kw.lower().split())       # Stemmed reference words
+            ref_words      = set(ref_kw.lower().split())       # normalized reference words
             ref_words_orig = set(ref_kw_orig.lower().split())  # Original reference words
 
-            # OR logic: check overlap on stemmed OR original
-            overlap_stemmed = sum(1 for w in cand_words if w in ref_words)
+            # OR logic: check overlap on normalized OR original
+            overlap_normalized = sum(1 for w in cand_words if w in ref_words)
             overlap_orig    = sum(1 for w in cand_words_orig if w in ref_words_orig)
 
-            if (overlap_stemmed / cand_len >= threshold) or (overlap_orig / cand_len >= threshold):
+            if (overlap_normalized / cand_len >= threshold) or (overlap_orig / cand_len >= threshold):
                 matches += 1
                 matched_indices.add(idx)
                 break  # Stop once we match this candidate to one reference keyword

@@ -17,8 +17,8 @@ The evaluation process generates a single file containing the evaluation results
 
 def get_PRF(num_c, num_e, num_s):
     F1 = 0.0
-    P = float(num_c) / float(num_e) if num_e!=0 else 0.0
-    R = float(num_c) / float(num_s) if num_s!=0 else 0.0
+    P = float(num_c) / float(num_e) if num_e != 0 else 0.0
+    R = float(num_c) / float(num_s) if num_s != 0 else 0.0
     if (P + R == 0.0):
         F1 = 0
     else:
@@ -61,8 +61,7 @@ if __name__ == '__main__':
     
     log_file_path  = os.path.join(preds_dir_path, 'experiment_results') # The file path to write the results
 
-    dataset_list = [#'Inspec', 
-                    #'SemEval2017',
+    dataset_list = [
                     'MDPI', 
                     'SemEval2010', 
                     'DUC2001', 
@@ -118,7 +117,7 @@ if __name__ == '__main__':
         labels = [j_data['label'] for j_data in json_list]                # labels is the true keywords
 
         if len(preds) != len(labels):
-            raise ValueError("The lengths of the preds and labels are not equal.")
+            raise ValueError(r"The lengths of the {preds} and {labels} are not equal.")
         
 
         # Exact match counters
@@ -175,7 +174,7 @@ if __name__ == '__main__':
                     label_s_list.append(' '.join(porter.stem(t) for t in tokens))
 
 
-            # Count the number of True Positives (TP) for 5, 10, and 15 keywords
+            # Count the number of True Positives (TP) for 5, and 10 keywords/keyphrases
             # EXACT MATCHING
             # ==================================================================
             j = 0
