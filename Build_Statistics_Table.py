@@ -92,9 +92,17 @@ GROUP_ORDER = ["A", "B", "C", "D", "E", "F", "G", "H"]
 # substring, the name of exactly one KE method from one of the secondary
 # categories below. That secondary method's "Runtime.Per_Dataset" value (per
 # dataset) is added to the primary method's own "Runtime.Per_Dataset" value.
-PRIMARY_CATEGORY = "A"
-SECONDARY_CATEGORIES = ["B", "C"]
+PRIMARY_CATEGORY_OPTIONS = ["A", "B"]
+PRIMARY_CATEGORY = None
+SECONDARY_CATEGORIES = ["C", "D"]
 
+
+
+LLM_OPTIONS = ["Llama3", "Gemma"]
+LLM = None
+
+LLM_MODE_OPTIONS = ["", "vLLM"]
+LLM_MODE = None
 
 # =========================================================================
 # IMPLEMENTATION
@@ -110,9 +118,11 @@ def find_stats_files(root_folder, target_max_len):
         parent_folder_name = os.path.basename(dirpath)
         for fname in filenames:
             if fname.endswith(FILENAME_SUFFIX):
+
                 if target_max_len not in parent_folder_name:
                     skipped_count += 1
                     continue
+
                 full_path = os.path.abspath(os.path.join(dirpath, fname))
                 real_path = os.path.realpath(full_path)  # resolve symlinks
                 found.add(real_path)
@@ -178,7 +188,7 @@ def match_secondary_to_primary(primary_names, secondary_names):
                 f"secondary-category method: '{primary_to_secondary[primary_name]}' "
                 f"and '{sec_name}'. Matching must be unique (1-to-1)."
             )
-        primary_to_secondary[f"Llama3_T10_{primary_name}"] = f"Parallel_{sec_name}"
+        primary_to_secondary[f"{LLM}{LLM_MODE}_T10_{primary_name}"] = f"Parallel_{sec_name}"
  
     missing = sorted(set(primary_names) - set(primary_to_secondary.keys()))
     if missing:
@@ -191,7 +201,7 @@ def match_secondary_to_primary(primary_names, secondary_names):
  
  
 def build_merged_runtime_table(data, ke_categories, datasets):
-    """Build the rows for the second table: primary-category KE methods,
+    """Build the rows for the second and third table: primary-category KE methods,
     one 'Runtime.Per_Dataset' sub-column per dataset, where each value is
     the primary method's own Runtime.Per_Dataset plus its matched
     secondary-category method's Runtime.Per_Dataset (same dataset).
@@ -263,20 +273,19 @@ def main():
         if dml is not None:
             if datasets_max_length is None:
                 datasets_max_length = dml
-            elif dml != datasets_max_length: # If we extract a Datasets_Max_Len value that is different from TARGET_MAX_LEN
+            elif dml != datasets_max_length: # If we extract a {Datasets_Max_Len} -> {dml} value that is different from TARGET_MAX_LEN ...
                 max_length_warnings.append((path, dml))
 
 
-        # Track Category per KE method (should be the same across all of a
-        # given KE method's dataset files)
+        # Track Category per KE method. A KE method must have a unique category
         category = record.get("Category")
         if category is not None:
             if ke not in ke_categories:
                 ke_categories[ke] = category
-            elif ke_categories[ke] != category:
+            elif ke_categories[ke] != category: # If the extracted category of a given KE method does not match its existing category ... 
                 category_warnings.append((path, ke, ke_categories[ke], category))
 
-        data.setdefault(ke, {})[dataset] = record
+        data.setdefault(ke, {})[dataset] = record # Note: We create a statistics JSON file for each dataset of a given KE method
 
 
         # Something like this:
@@ -369,31 +378,56 @@ def main():
     for ke in ke_methods:
         row = [ke]
         for dataset in datasets:
+
             record = data.get(ke, {}).get(dataset)
+
             if record is None:
                 row.extend([""] * k)
                 continue
+
             for _display_name, dotted_path in all_fields:
                 value = get_nested(record, dotted_path)
                 row.append("" if value is None else value)
+
         data_rows.append(row)
 
     # ---------------------------------------------------------------
-    # Write CSV: first table, then the merged-runtime table below it
+    # Write CSV: first table, then the merged-runtime tables below it
     # ---------------------------------------------------------------
-    primary_names_sorted, merged_data_rows = build_merged_runtime_table(data, ke_categories, datasets)
+    PRIMARY_CATEGORY = PRIMARY_CATEGORY_OPTIONS[0]
+    LLM = LLM_OPTIONS[0] # Llama3
+    LLM_MODE = LLM_MODE_OPTIONS[0] # Normal mode
+
+    mrt1_primary_names_sorted, mrt1_merged_data_rows = build_merged_runtime_table(data, ke_categories, datasets)
  
-    merged_header_row1 = ["KE Method"]
-    merged_header_row2 = [""]
+    mrt1_merged_header_row1 = ["KE Method"]
+    mrt1_merged_header_row2 = [""]
     for dataset in datasets:
-        merged_header_row1.append(dataset)
-        merged_header_row2.append("Runtime.Per_Dataset")
+        mrt1_merged_header_row1.append(dataset)
+        mrt1_merged_header_row2.append("Runtime.Per_Dataset")
+
+
+
+
+    PRIMARY_CATEGORY = PRIMARY_CATEGORY_OPTIONS[1]
+    LLM_MODE = LLM_MODE_OPTIONS[1] # vLLM mode
+    mrt2_primary_names_sorted, mrt2_merged_data_rows = build_merged_runtime_table(data, ke_categories, datasets)
+ 
+    mrt2_merged_header_row1 = ["KE Method"]
+    mrt2_merged_header_row2 = [""]
+    for dataset in datasets:
+        mrt2_merged_header_row1.append(dataset)
+        mrt2_merged_header_row2.append("Runtime.Per_Dataset")
+
+
 
 
 
     os.makedirs(os.path.dirname(OUTPUT_CSV) or ".", exist_ok=True)
     with open(OUTPUT_CSV, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
+
+        # TABLE 1
         writer.writerow([f"Datasets Max Length: {datasets_max_length}"])
         writer.writerow([])  # blank spacer row
         writer.writerow(header_row1)
@@ -403,18 +437,34 @@ def main():
         writer.writerow([])  # blank spacer row between tables
         writer.writerow([])
 
-        writer.writerow([f"Merged Runtime Table (Category '{PRIMARY_CATEGORY}' "
+        # TABLE 2
+        writer.writerow([f"Merged Runtime Table (Category '{PRIMARY_CATEGORY_OPTIONS[0]}' "
                           f"+ matched {SECONDARY_CATEGORIES} method)"])
                           
-        writer.writerow(merged_header_row1)
-        writer.writerow(merged_header_row2)
-        writer.writerows(merged_data_rows)
+        writer.writerow(mrt1_merged_header_row1)
+        writer.writerow(mrt1_merged_header_row2)
+        writer.writerows(mrt1_merged_data_rows)
+
+        writer.writerow([])  # blank spacer row between tables
+        writer.writerow([])
+
+        # TABLE 3
+        writer.writerow([f"Merged Runtime Table (Category '{PRIMARY_CATEGORY_OPTIONS[1]}' "
+                          f"+ matched {SECONDARY_CATEGORIES} method)"])
+                          
+        writer.writerow(mrt2_merged_header_row1)
+        writer.writerow(mrt2_merged_header_row2)
+        writer.writerows(mrt2_merged_data_rows)
 
 
     print(f"\nWrote table 1 with {len(ke_methods)} KE method(s) x "
           f"{len(datasets)} dataset(s) x {k} sub-column(s).")
     
-    print(f"Wrote table 2 (merged runtime) with {len(primary_names_sorted)} KE method(s) x "
+    print(f"Wrote table 2 (merged runtime) with {len(mrt1_primary_names_sorted)} KE method(s) x "
+          f"{len(datasets)} dataset(s) x 1 sub-column.")
+
+
+    print(f"Wrote table 3 (merged runtime) with {len(mrt2_primary_names_sorted)} KE method(s) x "
           f"{len(datasets)} dataset(s) x 1 sub-column.")
 
     print(f"Both tables written to:\n  {OUTPUT_CSV}")
