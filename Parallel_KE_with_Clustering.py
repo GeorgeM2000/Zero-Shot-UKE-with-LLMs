@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 import argparse
-import pytextrank # Required if you want to use PositionRank, TextRank, TopicRank
+import pytextrank # Required if you want to use PositionRank, TextRank, and TopicRank
 import pke # Required if you want to use KPMiner, MPRank, and other KE methods 
 import spacy
 import string
@@ -37,12 +37,16 @@ def find_knee_with_kneedle(runtimes):
     runtimes = np.array(runtimes)
     x = np.arange(len(runtimes))
 
+    # Kneedle works best if curve is convex and decreasing
     kneedle = KneeLocator(x, runtimes, curve="convex", direction="decreasing")
     knee = kneedle.knee
 
     if knee is None:
+        # If no knee detected, fall back to using all available cores
         return len(runtimes)
     else:
+        # `knee` is a 0-based index into `runtimes`; runtimes[i] corresponds
+        # to (i + 1) cores, so we convert index -> core count.
         return int(knee) + 1
 
 
@@ -81,7 +85,7 @@ def load_embedding_model():
 
 
 
-def create_parallel_settings(data, ke_method, dataset_name, no_docs, reserve_cores=1):
+def create_parallel_settings(data, ke_method, dataset_name, no_docs, reserve_cores=2):
 
     cores = psutil.cpu_count(logical=False)
     if cores is None:
@@ -119,6 +123,7 @@ def find_stats_files(root_folder, target_max_len, filename_suffix="_stats.json")
     """Recursively find all files ending with FILENAME_SUFFIX whose immediate
     parent folder name contains `target_max_len` as a substring.
     Returns a de-duplicated, sorted list of absolute paths."""
+
     found = set()
     skipped_count = 0
     for dirpath, _dirnames, filenames in os.walk(root_folder):
@@ -160,16 +165,12 @@ def process_batch_full_pipeline(batch_data_list, batch_index, ke_method, sim_tec
     """
     batch_keyphrases = []
 
-    # Hoisted out of the per-document loop for RAKE, same fix as in
-    # Parallel_KE.py: one Rake extractor reused across this batch's
-    # documents instead of constructing a fresh one per document.
-    rake_extractor = Rake(ranking_metric=Metric.DEGREE_TO_FREQUENCY_RATIO) if ke_method == 'RAKE' else None
-
     for j_data in batch_data_list:
         doc = j_data['doc']
 
         # =============================== KE Process ========================================
         if ke_method == 'RAKE':
+            rake_extractor = Rake(ranking_metric=Metric.DEGREE_TO_FREQUENCY_RATIO)
             rake_extractor.extract_keywords_from_text(doc)
             keyphrases = sorted(set(rake_extractor.get_ranked_phrases_with_scores()), key=lambda x: x[0], reverse=True)
             keyphrases = [kw for _,kw in keyphrases]
@@ -238,7 +239,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--ke_method', type=str, default='RAKE', help="The keyword/keyphrase extraction method")
     parser.add_argument('--data_path', type=str, default='data/processed', help="Directory path of test datasets")
-    parser.add_argument('--similarity_technique', type=str, default='NEb', help="Similarity technique (Embedding-based or Non-Embedding-based)")
+    parser.add_argument('--similarity_technique', type=str, default='Eb', choices=['Eb', 'NEb'], help="Similarity technique (Embedding-based or Non-Embedding-based)")
     parser.add_argument('--similarity_threshold', type=str, default='0.25', help="Similarity threshold")
     parser.add_argument('--datasets_max_len', type=str, default='FULL', help="Maximum length of test datasets")
     args = parser.parse_args()
@@ -334,8 +335,7 @@ if __name__ == '__main__':
         os.makedirs(result_path)
         print(f"Directory created: {result_path}")
 
-    dataset_list = [#'Inspec',
-                    #'SemEval2017',
+    dataset_list = [
                     'MDPI',
                     'SemEval2010',
                     'DUC2001',
@@ -353,29 +353,21 @@ if __name__ == '__main__':
 
         no_cores, batch_ranges = create_parallel_settings(data, serial_ke_key, dataset_name, len(data_list))
 
-
-        print(f"Created {len(batch_ranges)} batch ranges for (Dataset = {dataset_name}, KE Method = {ke_method})")
-        for r in batch_ranges:
-            print(r)
-        print()
-
-
         perdataset_start_time = time.perf_counter()
 
-        output_list, perdoc_times = parallel_full_pipeline_processing(
+        keyphrases_list = parallel_full_pipeline_processing(
             data_list, batch_ranges, no_cores, ke_method, sim_technique, sim_threshold
         )
 
         perdataset_end_time = time.perf_counter()
 
         total_word_count, total_non_word_count, perdataset_avg_no_words = process_keyphrases(
-            [log['final_pred_keyphrase'] for log in output_list]
+            keyphrases_list
         )
 
         perkeyphrase_no_tokens = []
         perdoc_no_keyphrases = []
-        for log in output_list:
-            keyphrases = log['final_pred_keyphrase']
+        for keyphrases in keyphrases_list:
             perdoc_no_keyphrases.append(len(keyphrases))
 
             for kw in keyphrases:

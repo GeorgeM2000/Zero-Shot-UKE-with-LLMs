@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 import argparse
-import pytextrank # Required if you want to use PositionRank, TextRank, TopicRank
+import pytextrank # Required if you want to use PositionRank, TextRank, and TopicRank
 import pke # Required if you want to use KPMiner, MPRank, and other KE methods 
 import spacy
 import yake
@@ -18,7 +18,7 @@ from Utilities import process_keyphrases
 from kneed import KneeLocator
 
 
-INPUT_FOLDER = "/path/to/your/results/folder"
+INPUT_FOLDER = "/path/to/your/results/folder" 
 
 
 
@@ -63,7 +63,7 @@ def find_knee_with_kneedle(runtimes):
 # This is different from (and cheaper than) loading the model separately
 # inside each worker (e.g. via ProcessPoolExecutor's `initializer=`): that
 # approach calls spacy.load() once PER WORKER, which means N workers -> N
-# full copies of the model in RAM. Pattern B loads it exactly once, total,
+# full copies of the model in RAM. The current approach loads it exactly once, total,
 # as long as workers only READ the model (pure inference -- which is the
 # case here: PositionRank/TextRank/TopicRank only score text, they never
 # update model weights).
@@ -94,10 +94,10 @@ def load_spacy_model(spacy_model_path, pipe_component):
     SPACY_MODEL = model
     return SPACY_MODEL
 
-def create_parallel_settings(data, ke_method, dataset_name, no_docs, reserve_cores=1):
+def create_parallel_settings(data, ke_method, dataset_name, no_docs, reserve_cores=2):
  
-    cores = psutil.cpu_count(logical=False)
-    if cores is None:
+    cores = psutil.cpu_count(logical=False) # Physical CPU cores
+    if cores is None: # If, for some reason, {cores} is None
         cores = os.cpu_count()
  
     cores = max(1, cores - reserve_cores)
@@ -135,7 +135,8 @@ def create_parallel_settings(data, ke_method, dataset_name, no_docs, reserve_cor
     print(f"Created {len(batch_ranges)} batch ranges for (Dataset = {dataset_name}, KE Method = {ke_method})")
     for batch_range in batch_ranges:  # Fixed: no longer shadows builtin `range`
         print(batch_range)
- 
+    print()
+    
     return no_cores, batch_ranges
 
 
@@ -144,6 +145,7 @@ def find_stats_files(root_folder, target_max_len, filename_suffix="_stats.json")
     """Recursively find all files ending with FILENAME_SUFFIX whose immediate
     parent folder name contains `target_max_len` as a substring.
     Returns a de-duplicated, sorted list of absolute paths."""
+
     found = set() # set() is used so that there are no duplicate stat files
     skipped_count = 0
     for dirpath, _dirnames, filenames in os.walk(root_folder):
@@ -154,7 +156,7 @@ def find_stats_files(root_folder, target_max_len, filename_suffix="_stats.json")
                     skipped_count += 1
                     continue
                 full_path = os.path.abspath(os.path.join(dirpath, fname))
-                real_path = os.path.realpath(full_path)  # resolve symlinks
+                real_path = os.path.realpath(full_path)  # Resolve symlinks
                 found.add(real_path)
 
     if skipped_count:
@@ -191,7 +193,7 @@ def process_batch_yake(batch_documents, batch_index, ke_method):
 
 
 def process_batch_rank(batch_documents, batch_index, ke_method=None):
-    # Pattern B: the model is never passed in through submit(). Each forked
+    # Current approach: the model is never passed in through submit(). Each forked
     # worker already has its own reference to SPACY_MODEL, inherited via
     # copy-on-write from the parent process, where it was loaded exactly
     # once (see load_spacy_model(), called in __main__ before the pool is
@@ -267,7 +269,7 @@ if __name__ == '__main__':
     print(f"Found {len(stats_files)} '*_stats.json' file(s) matching "
           f"TARGET_MAX_LEN='{datasets_max_len}'.")
 
-    # Pattern B: load the spaCy model ONCE here, in the parent process,
+    # Current approach: load the spaCy model ONCE here, in the parent process,
     # before ProcessPoolExecutor forks any workers (that happens later,
     # inside parallel_ke_processing(), once per dataset). Because it's
     # loaded before the fork, every worker inherits the same already-loaded
@@ -310,20 +312,19 @@ if __name__ == '__main__':
         if dml is not None:
             if datasets_max_length is None:
                 datasets_max_length = dml
-            elif dml != datasets_max_length: # If we extract a Datasets_Max_Len value that is different from TARGET_MAX_LEN
+            elif dml != datasets_max_length: # If we extract a {Datasets_Max_Len} -> {dml} value that is different from TARGET_MAX_LEN ...
                 max_length_warnings.append((path, dml))
 
 
-        # Track Category per KE method (should be the same across all of a
-        # given KE method's dataset files)
+        # Track Category per KE method. A KE method must have a unique category
         category = record.get("Category")
         if category is not None:
             if ke not in ke_categories:
                 ke_categories[ke] = category
-            elif ke_categories[ke] != category:
+            elif ke_categories[ke] != category: # If the extracted category of a given KE method does not match its existing category ... 
                 category_warnings.append((path, ke, ke_categories[ke], category))
 
-        data.setdefault(ke, {})[dataset] = record
+        data.setdefault(ke, {})[dataset] = record # Note: We create a statistics JSON file for each dataset of a given KE method
 
 
 
@@ -332,7 +333,7 @@ if __name__ == '__main__':
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
 
     result_path = os.path.join('results', 
-                               f"Parallel_{ke_method}/Parallel_{ke_method}" if ke_method != 'YAKE' else f"Parallel_{ke_method}/Parallel_{ke_method}_T{T}", 
+                               f"Parallel_{ke_method}/Parallel_{ke_method}", #if ke_method != 'YAKE' else f"Parallel_{ke_method}/Parallel_{ke_method}_T{T}
                                f'{timestamp}_{datasets_max_len}') 
     
     print(f"Results path: {result_path}")
@@ -342,8 +343,7 @@ if __name__ == '__main__':
         print(f"Directory created: {result_path}")
     
     
-    dataset_list = [#'Inspec', 
-                    #'SemEval2017', 
+    dataset_list = [
                     'MDPI',
                     'SemEval2010', 
                     'DUC2001', 
@@ -356,19 +356,13 @@ if __name__ == '__main__':
         print(f"Dataset: {dataset_name}")
         
         with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}.jsonl'), "r", encoding='utf-8') as f: # data/processed/{dataset_name}_MAX{datasets_max_len}.jsonl
-            lines = f.readlines() # Each line is a document of a specific dataset
+            lines = f.readlines() 
 
             # Each line is a dictionary
-            data_list = [json.loads(line.strip()) for line in lines] # data_list contains information about the documents (doc, label, stemmed_label)
+            data_list = [json.loads(line.strip()) for line in lines] # data_list contains information about the documents (doc, label, normalized_label)
 
         
         no_cores, batch_ranges = create_parallel_settings(data, ke_method, dataset_name, len(data_list))
-
-
-        print(f"Created {len(batch_ranges)} batch ranges for (Dataset = {dataset_name}, KE Method = {ke_method})")
-        for r in batch_ranges:
-            print(r)
-        print()
 
         perkeyphrase_no_tokens = [] # Number of tokens (words, numbers, symbols) each keyphrase has
         perdoc_no_keyphrases = [] # Number of keyphrases extracted by a KE method for some dataset
