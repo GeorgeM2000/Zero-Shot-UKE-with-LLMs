@@ -19,7 +19,7 @@ from kneed import KneeLocator
 
 
 INPUT_FOLDER = "/path/to/your/results/folder" 
-
+CAT_OF_SERIAL_KE = "A"
 
 
 def find_knee_with_kneedle(runtimes):
@@ -136,7 +136,7 @@ def create_parallel_settings(data, ke_method, dataset_name, no_docs, reserve_cor
     for batch_range in batch_ranges:  # Fixed: no longer shadows builtin `range`
         print(batch_range)
     print()
-    
+
     return no_cores, batch_ranges
 
 
@@ -289,11 +289,6 @@ if __name__ == '__main__':
 
     # data[ke_method][dataset] = raw json dict
     data = {}
-    ke_categories = {}  # ke_method -> Category
-    category_warnings = []
-    datasets_max_length = None
-    max_length_warnings = []
-
     for path in stats_files:
         try:
             record = load_stats_file(path)
@@ -303,28 +298,13 @@ if __name__ == '__main__':
 
         ke = record.get("KE")
         dataset = record.get("Dataset")
-        if ke is None or dataset is None:
-            print(f"  [SKIP] Missing 'KE' or 'Dataset' field in {path}")
+        category = record.get("Category")
+        if ke is None or dataset is None or category is None:
+            print(f"  [SKIP] Missing 'KE' or 'Dataset' or 'Category' field in {path}")
             continue
 
-        # Track Datasets_Max_Length (should be the same across all files)
-        dml = record.get("Datasets_Max_Length")
-        if dml is not None:
-            if datasets_max_length is None:
-                datasets_max_length = dml
-            elif dml != datasets_max_length: # If we extract a {Datasets_Max_Len} -> {dml} value that is different from TARGET_MAX_LEN ...
-                max_length_warnings.append((path, dml))
-
-
-        # Track Category per KE method. A KE method must have a unique category
-        category = record.get("Category")
-        if category is not None:
-            if ke not in ke_categories:
-                ke_categories[ke] = category
-            elif ke_categories[ke] != category: # If the extracted category of a given KE method does not match its existing category ... 
-                category_warnings.append((path, ke, ke_categories[ke], category))
-
-        data.setdefault(ke, {})[dataset] = record # Note: We create a statistics JSON file for each dataset of a given KE method
+        if category == CAT_OF_SERIAL_KE:
+            data.setdefault(ke, {})[dataset] = record # Note: We create a statistics JSON file for each dataset of a given KE method
 
 
 

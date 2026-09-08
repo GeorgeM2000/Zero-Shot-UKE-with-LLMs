@@ -86,9 +86,9 @@ TARGET_MAX_LEN = "FULL"
 # This list must contain every category value that appears in your files.
 GROUP_ORDER = ["A", "B", "C", "D", "E", "F", "G", "H"]
 
-# ---- Config for the second ("merged runtime") table -----------------------
-# The primary category whose KE method names become the rows of the second
-# table. Each primary-category KE method's name must contain, as a
+# ---- Config for the 2nd, 3rd, ... ("merged runtime") tables -----------------------
+# The primary category whose KE method names become the rows of the subsequent
+# tables. Each primary-category KE method's name must contain, as a
 # substring, the name of exactly one KE method from one of the secondary
 # categories below. That secondary method's "Runtime.Per_Dataset" value (per
 # dataset) is added to the primary method's own "Runtime.Per_Dataset" value.
@@ -112,6 +112,7 @@ def find_stats_files(root_folder, target_max_len):
     """Recursively find all files ending with FILENAME_SUFFIX whose immediate
     parent folder name contains `target_max_len` as a substring.
     Returns a de-duplicated, sorted list of absolute paths."""
+    
     found = set() # set() is used so that there are no duplicate stat files
     skipped_count = 0
     for dirpath, _dirnames, filenames in os.walk(root_folder):

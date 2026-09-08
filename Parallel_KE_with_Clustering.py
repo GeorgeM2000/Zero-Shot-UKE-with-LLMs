@@ -21,6 +21,7 @@ from kneed import KneeLocator
 
 
 INPUT_FOLDER = "/path/to/your/results/folder"
+CAT_OF_SERIAL_KE = "C"
 
 
 def find_knee_with_kneedle(runtimes):
@@ -281,11 +282,6 @@ if __name__ == '__main__':
     # (ke_method, sim_technique, sim_threshold) combination is the baseline
     # runtime used for the Kneedle core-count estimate below.
     data = {}
-    ke_categories = {}
-    category_warnings = []
-    datasets_max_length = None
-    max_length_warnings = []
-
     for path in stats_files:
         try:
             record = load_stats_file(path)
@@ -295,25 +291,14 @@ if __name__ == '__main__':
 
         ke = record.get("KE")
         dataset = record.get("Dataset")
-        if ke is None or dataset is None:
-            print(f"  [SKIP] Missing 'KE' or 'Dataset' field in {path}")
+        category = record.get("Category")
+        if ke is None or dataset is None or category is None:
+            print(f"  [SKIP] Missing 'KE' or 'Dataset' or 'Category' field in {path}")
             continue
 
-        dml = record.get("Datasets_Max_Length")
-        if dml is not None:
-            if datasets_max_length is None:
-                datasets_max_length = dml
-            elif dml != datasets_max_length:
-                max_length_warnings.append((path, dml))
+        if category == CAT_OF_SERIAL_KE:
+            data.setdefault(ke, {})[dataset] = record # Note: We create a statistics JSON file for each dataset of a given KE method
 
-        category = record.get("Category")
-        if category is not None:
-            if ke not in ke_categories:
-                ke_categories[ke] = category
-            elif ke_categories[ke] != category:
-                category_warnings.append((path, ke, ke_categories[ke], category))
-
-        data.setdefault(ke, {})[dataset] = record
 
     # This must match the "KE" field the SERIAL script (KE_with_Clustering.py)
     # writes into its own stats.json for this exact combination -- that's
