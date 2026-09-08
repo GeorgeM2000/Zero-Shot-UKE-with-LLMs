@@ -112,7 +112,7 @@ def find_stats_files(root_folder, target_max_len):
     """Recursively find all files ending with FILENAME_SUFFIX whose immediate
     parent folder name contains `target_max_len` as a substring.
     Returns a de-duplicated, sorted list of absolute paths."""
-    
+
     found = set() # set() is used so that there are no duplicate stat files
     skipped_count = 0
     for dirpath, _dirnames, filenames in os.walk(root_folder):
@@ -189,7 +189,7 @@ def match_secondary_to_primary(primary_names, secondary_names):
                 f"secondary-category method: '{primary_to_secondary[primary_name]}' "
                 f"and '{sec_name}'. Matching must be unique (1-to-1)."
             )
-        primary_to_secondary[f"{LLM}{LLM_MODE}_T10_{primary_name}"] = f"Parallel_{sec_name}"
+        primary_to_secondary[f"{LLM}{LLM_MODE}_{primary_name}"] = f"Parallel_{sec_name}"
  
     missing = sorted(set(primary_names) - set(primary_to_secondary.keys()))
     if missing:
