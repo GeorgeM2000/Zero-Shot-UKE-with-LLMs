@@ -9,7 +9,7 @@ import spacy
 import numpy as np
 
 from tqdm import tqdm
-from Utilities import lemmatize_keywords
+from Utilities import lemmatize_keyphrases
 
 
 
@@ -465,7 +465,7 @@ if __name__ == '__main__':
             labels.append([ref.replace(" \n", "") for ref in references[key]]) 
 
             if word_norm_technique == "Lemma":
-                labels_n = lemmatize_keywords(references[key], spacy_model)
+                labels_n = lemmatize_keyphrases(references[key], spacy_model)
 
             else:
                 labels_n = [] # {labels_n} are the true normalized keywords

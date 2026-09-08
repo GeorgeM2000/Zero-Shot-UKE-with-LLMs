@@ -38,40 +38,41 @@ def process_keyphrases(perdoc_keyphrases):
 
 
 
-def count_word_overlap_matches(candidate_keywords, candidate_keywords_orig, reference_keywords, reference_keywords_orig, threshold=0.25):
+def count_word_overlap_matches(candidate_n_keyphrases, candidate_orig_keyphrases, reference_n_keyphrases, reference_orig_keyphrases, threshold=0.25):
     """
-    Count how many candidate keywords match the reference keywords
+    Count how many candidate keyphrases match the reference keyphrases
     based on word overlap (>= threshold), using OR logic on normalized and original versions.
 
     A match means: at least `threshold` fraction of words in a candidate
-    keyword appear in the words of SOME reference keyword (normalized OR original).
+    keyphrase appear in the words of SOME reference keyphrase (normalized OR original).
     """
     matches = 0
-    matched_indices = set()  # To avoid matching the same reference keyword multiple times
+    matched_indices = set()  # To avoid matching the same reference keyphrase multiple times
 
-    for cand_kw, cand_kw_orig in zip(candidate_keywords, candidate_keywords_orig):
-        cand_words      = cand_kw.lower().split() # normalized words of candidate keyphrase
+    for cand_kw_n, cand_kw_orig in zip(candidate_n_keyphrases, candidate_orig_keyphrases):
+        
+        cand_words_n      = cand_kw_n.lower().split() # Normalized words of candidate keyphrase
         cand_words_orig = cand_kw_orig.lower().split() # Original words of candidate keyphrase
-        cand_len = len(cand_words)
+        cand_len = len(cand_words_n)
 
         if cand_len == 0:
             continue
 
-        for idx, (ref_kw, ref_kw_orig) in enumerate(zip(reference_keywords, reference_keywords_orig)):
+        for idx, (ref_kw_n, ref_kw_orig) in enumerate(zip(reference_n_keyphrases, reference_orig_keyphrases)):
             if idx in matched_indices:
                 continue
 
-            ref_words      = set(ref_kw.lower().split())       # normalized reference words
-            ref_words_orig = set(ref_kw_orig.lower().split())  # Original reference words
+            ref_words_n      = set(ref_kw_n.lower().split())       # Normalized reference words
+            ref_words_orig   = set(ref_kw_orig.lower().split())  # Original reference words
 
             # OR logic: check overlap on normalized OR original
-            overlap_normalized = sum(1 for w in cand_words if w in ref_words)
+            overlap_normalized = sum(1 for w in cand_words_n if w in ref_words_n)
             overlap_orig    = sum(1 for w in cand_words_orig if w in ref_words_orig)
 
             if (overlap_normalized / cand_len >= threshold) or (overlap_orig / cand_len >= threshold):
                 matches += 1
                 matched_indices.add(idx)
-                break  # Stop once we match this candidate to one reference keyword
+                break  # Stop once we match this candidate to one reference keyphrase
 
     return matches
 
@@ -90,23 +91,23 @@ def count_word_overlap_matches(candidate_keywords, candidate_keywords_orig, refe
 # Reuses the spaCy model already loaded elsewhere in the pipeline
 # (spacy_model_path / nlp), so no extra model load cost.
 # -----------------------------------------------------------------------
-def lemmatize_keywords(keywords_list, nlp): # keywords_list for only one document in a dataset
+def lemmatize_keyphrases(keyphrases_list, nlp): # keyphrases_list for only one document in a dataset
     """
     Lemmatize a list of keyword/keyphrase strings using spaCy.
 
     Args:
-        keywords_list (list of str): Original keyword/keyphrase strings.
+        keyphrases_list (list of str): Original keyword/keyphrase strings.
         nlp: A loaded spaCy Language object (e.g. spacy.load(spacy_model_path)).
 
     Returns:
-        list of str: Space-joined lemmatized tokens per keyword, e.g.
+        list of str: Space-joined lemmatized tokens per keyphrase, e.g.
             "neural networks" -> "neural network"
             "optimizing performance" -> "optimize performance"
     """
-    # nlp.pipe batches the keywords list through spaCy's pipeline efficiently,
-    # rather than calling nlp(kw) once per keyword in a Python loop.
+    # nlp.pipe batches the keyphrases list through spaCy's pipeline efficiently,
+    # rather than calling nlp(kw) once per keyphrase in a Python loop.
     lemmatized = []
-    for kw in nlp.pipe(keywords_list):
+    for kw in nlp.pipe(keyphrases_list):
         lemmas = [token.lemma_.lower() for token in kw if not token.is_space]
         lemmatized.append(" ".join(lemmas))
 

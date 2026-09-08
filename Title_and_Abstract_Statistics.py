@@ -9,7 +9,6 @@ import spacy
 import numpy as np
 
 from tqdm import tqdm
-from Utilities import lemmatize_keywords
 from Preprocessing import clean_text
 
 def get_MDPI_data(file_path="data/MDPI/UMDPI_Abstracts.json"):

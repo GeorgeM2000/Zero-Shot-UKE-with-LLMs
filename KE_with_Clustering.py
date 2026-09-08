@@ -11,7 +11,7 @@ import numpy as np
 
 from tqdm import tqdm
 from RAKE import Rake, Metric
-from Utilities import process_keyphrases, cluster_keywords, cluster_keywords_embeddings, lemmatize_keywords
+from Utilities import process_keyphrases, cluster_keywords, cluster_keywords_embeddings, lemmatize_keyphrases
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 from sentence_transformers import SentenceTransformer  
@@ -161,7 +161,7 @@ if __name__ == '__main__':
                 #                            sim_threshold)
 
                 keyphrases = cluster_keywords(keyphrases,
-                                              lemmatize_keywords(keyphrases, spacy_model),
+                                              lemmatize_keyphrases(keyphrases, spacy_model),
                                               sim_threshold)
 
             # ===========================================================================================

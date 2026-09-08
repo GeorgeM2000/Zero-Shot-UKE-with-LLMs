@@ -13,7 +13,7 @@ import concurrent.futures
 
 from tqdm import tqdm
 from RAKE import Rake, Metric
-from Utilities import process_keyphrases, cluster_keywords, cluster_keywords_embeddings, lemmatize_keywords
+from Utilities import process_keyphrases, cluster_keywords, cluster_keywords_embeddings, lemmatize_keyphrases
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 from sentence_transformers import SentenceTransformer
@@ -197,7 +197,7 @@ def process_batch_full_pipeline(batch_data_list, batch_index, ke_method, sim_tec
         else:
             keyphrases = cluster_keywords(
                 keyphrases,
-                lemmatize_keywords(keyphrases, SPACY_MODEL),
+                lemmatize_keyphrases(keyphrases, SPACY_MODEL),
                 sim_threshold,
             )
         # ===========================================================================================
@@ -258,7 +258,7 @@ if __name__ == '__main__':
     # ProcessPoolExecutor pool is created below. ---
 
     # spaCy model is always needed: KE extraction for PositionRank/TextRank/
-    # KPMiner/MPRank uses it directly, and lemmatize_keywords() needs it for
+    # KPMiner/MPRank uses it directly, and lemmatize_keyphrases() needs it for
     # NEb clustering regardless of ke_method (matches the original script,
     # which loads it unconditionally too).
     load_spacy_model(spacy_model_path)

@@ -7,11 +7,11 @@ import spacy
 import logging
 import numpy as np
 
-from Utilities import count_word_overlap_matches, lemmatize_keywords
+from Utilities import count_word_overlap_matches, lemmatize_keyphrases
 
 
 """
-The evaluation process generates a single file containing the evaluation results for all datasets associated with one KE method (either Traditional UKE or LLM-based).
+The evaluation process generates a single file containing the evaluation results for all datasets associated with a KE method (either Traditional UKE or LLM-based).
 """
 
 
@@ -19,10 +19,12 @@ def get_PRF(num_c, num_e, num_s):
     F1 = 0.0
     P = float(num_c) / float(num_e) if num_e != 0 else 0.0
     R = float(num_c) / float(num_s) if num_s != 0 else 0.0
-    if (P + R == 0.0):
-        F1 = 0
+
+    if ((P + R) == 0.0):
+        F1 = 0.0
     else:
-        F1 = 2 * P * R / (P + R)
+        F1 = 2.0 * P * R / (P + R)
+
     return P, R, F1
 
 
@@ -45,8 +47,8 @@ if __name__ == '__main__':
     parser.add_argument('--cat', type=str, default='A', help="Category of KE method")
     args = parser.parse_args()
 
-    # The file that contains the predictions is {dataset_name}_result.json for each dataset
-    preds_dir_path = args.path # Has to be something like this: results/Meta-Llama-3-8B-Instruct/.../{timestamp}/ --> This is the results folder created from the KE process
+    # The name of the file that contains the predictions is {dataset_name}_result.json for each dataset of a KE method
+    preds_dir_path = args.path # Has to be something like this: results/Meta-Llama-3-8B-Instruct/.../{timestamp}/ --> This is the results directory created from the KE process
     datasets_max_len = args.datasets_max_len
     ke_method = args.ke_method
     cat = args.cat
@@ -59,7 +61,7 @@ if __name__ == '__main__':
         # With PorterStemmer, matching candidate keywords to reference keywords becomes easier (loose matching)
         porter = nltk.PorterStemmer()
     
-    log_file_path  = os.path.join(preds_dir_path, 'experiment_results') # The file path to write the results
+    log_file_path  = os.path.join(preds_dir_path, 'experiment_results') # The file path to write the evaluation results
 
     dataset_list = [
                     'MDPI', 
@@ -77,7 +79,7 @@ if __name__ == '__main__':
     
     logger = logging.getLogger() # Retrieves the root logger (central logging object)
     
-    # Adds a handler that writes logs to a file:
+    # Adds a handler that writes logs to a file
     logger.addHandler(logging.FileHandler(log_file_path, 'w'))
 
     files = os.listdir(preds_dir_path)    
@@ -113,11 +115,14 @@ if __name__ == '__main__':
             lines  = f.readlines() 
             json_list = [json.loads(line.strip()) for line in lines] 
 
-        preds  = [j_data['final_pred_keyphrase'] for j_data in json_list] # preds is the extracted keyphrases
-        labels = [j_data['label'] for j_data in json_list]                # labels is the true keywords
+
+        # {j_data['final_pred_keyphrase']} is a list of extracted keyphrases, e.g. ["KW1", "KW2", ..., "KWn"]
+        # {j_data['label']} is a list of manually assigned keyphrases, e.g. ["KW1", "KW2", ..., "KWn"]
+        preds  = [j_data['final_pred_keyphrase'] for j_data in json_list] # {preds} is the extracted keyphrases
+        labels = [j_data['label'] for j_data in json_list]                # {labels} is the manually assigned keyphrases
 
         if len(preds) != len(labels):
-            raise ValueError(r"The lengths of the {preds} and {labels} are not equal.")
+            raise ValueError(r"The lengths of the {preds} and {labels} lists are not equal.")
         
 
         # Exact match counters
@@ -134,52 +139,58 @@ if __name__ == '__main__':
 
 
         for pred_list, label_list in zip(preds, labels): 
+
+            """
+            .*   → match as much as possible (greedy)
+            .*?  → match as little as possible (non-greedy)
+            """
+
+            # For every keyphrase in ["KW1", "KW2", ..., "KWn"]
             
-            pred_list = [ p.replace('-'," ") for p in pred_list ]
-            pred_list = [ p.replace('\n',"") for p in pred_list ]
-            pred_list = [ re.sub(r'\(.*?\)|\{.*?\}', '', kw).strip() for kw in pred_list ]
+            pred_list = [ p.replace("-", " ") for p in pred_list ]
+            pred_list = [ p.replace("\n", "") for p in pred_list ]
+            pred_list = [ re.sub(r'\(.*?\)|\{.*?\}', "", kw).strip() for kw in pred_list ]
             pred_list = [ " ".join(pred.split()) for pred in pred_list ]
             pred_list = [ p.lower().strip() for p in pred_list ]
 
-            label_list = [ l.replace('-'," ") for l in label_list ]
-            label_list = [ l.replace('\n',"") for l in label_list ]
-            label_list = [ re.sub(r'\(.*?\)|\{.*?\}', '', kw).strip() for kw in label_list ]
+            label_list = [ l.replace("-", " ") for l in label_list ]
+            label_list = [ l.replace("\n", "") for l in label_list ]
+            label_list = [ re.sub(r'\(.*?\)|\{.*?\}', "", kw).strip() for kw in label_list ]
             label_list = [ " ".join(l.split()) for l in label_list ]
             label_list = [ l.lower().strip() for l in label_list ]
 
             # Remove duplicates. Consider all unique keyphrases/keywords
             pred_set = []
             for pred in pred_list:
-                if pred in pred_set or pred == '':
+                if pred in pred_set or pred == "":
                     continue
                 else:
                     pred_set.append(pred)
 
             pred_set_list = pred_set[:10] # Because the maximum number of keyphrases to evaluate is 10
 
-            # Apply stemming to the predicted/extracted keywords and the true keywords
-
+            # Apply normalization to the predicted/extracted keyphrases and the manually assigned keyphrases
             if word_norm_technique == "Lemma":
-                pred_s_list = lemmatize_keywords(pred_set_list, spacy_model)
-                label_s_list = lemmatize_keywords(label_list, spacy_model)
+                pred_n_list  = lemmatize_keyphrases(pred_set_list, spacy_model)
+                label_n_list = lemmatize_keyphrases(label_list, spacy_model)
             else:
-                pred_s_list = []
+                pred_n_list = []
                 for p in pred_set_list:
-                    tokens = p.split()
-                    pred_s_list.append(' '.join(porter.stem(t) for t in tokens))
+                    tokens = p.split() # {p} is a keyphrase
+                    pred_n_list.append(" ".join(porter.stem(t) for t in tokens))
 
-                label_s_list = []
+                label_n_list = []
                 for l in label_list:
                     tokens = l.split()
-                    label_s_list.append(' '.join(porter.stem(t) for t in tokens))
+                    label_n_list.append(" ".join(porter.stem(t) for t in tokens))
 
 
             # Count the number of True Positives (TP) for 5, and 10 keywords/keyphrases
             # EXACT MATCHING
             # ==================================================================
             j = 0
-            for pred, pred_s in zip(pred_set_list, pred_s_list):
-                if pred_s in label_s_list or pred in label_list:
+            for pred, pred_n in zip(pred_set_list, pred_n_list):
+                if pred_n in label_n_list or pred in label_list:
                     if (j < 5):
                         num_c_5  += 1
                         num_c_10 += 1
@@ -192,14 +203,14 @@ if __name__ == '__main__':
 
             # PARTIAL MATCHING (threshold=0.25)
             # ==================================================================
-            num_pc25_5  += count_word_overlap_matches(pred_s_list[:5],  pred_set_list[:5],  label_s_list, label_list, threshold=0.25)
-            num_pc25_10 += count_word_overlap_matches(pred_s_list[:10], pred_set_list[:10], label_s_list, label_list, threshold=0.25)
+            num_pc25_5  += count_word_overlap_matches(pred_n_list[:5],  pred_set_list[:5],  label_n_list, label_list, threshold=0.25)
+            num_pc25_10 += count_word_overlap_matches(pred_n_list[:10], pred_set_list[:10], label_n_list, label_list, threshold=0.25)
             # ==================================================================
 
             # PARTIAL MATCHING (threshold=0.50)
             # ==================================================================
-            num_pc50_5  += count_word_overlap_matches(pred_s_list[:5],  pred_set_list[:5],  label_s_list, label_list, threshold=0.50)
-            num_pc50_10 += count_word_overlap_matches(pred_s_list[:10], pred_set_list[:10], label_s_list, label_list, threshold=0.50)
+            num_pc50_5  += count_word_overlap_matches(pred_n_list[:5],  pred_set_list[:5],  label_n_list, label_list, threshold=0.50)
+            num_pc50_10 += count_word_overlap_matches(pred_n_list[:10], pred_set_list[:10], label_n_list, label_list, threshold=0.50)
             # ==================================================================
 
             # Count the number of the extracted keywords for 5, 10, and 15 keywords
@@ -236,13 +247,13 @@ if __name__ == '__main__':
 
         # PARTIAL MATCH (threshold=0.25): Calculate and log PRF scores
         logging.info("-- Partial Match (threshold=0.25) --")
+
         p_pc25_5, r_pc25_5, f_pc25_5 = get_PRF(num_pc25_5, num_e_5, num_s)
         print_PRF(p_pc25_5, r_pc25_5, f_pc25_5, 5)
 
         p_pc25_10, r_pc25_10, f_pc25_10 = get_PRF(num_pc25_10, num_e_10, num_s)
         print_PRF(p_pc25_10, r_pc25_10, f_pc25_10, 10)
 
-        
         f_pc25_5_scores.append(f_pc25_5*100)
         f_pc25_10_scores.append(f_pc25_10*100)
 
@@ -250,20 +261,17 @@ if __name__ == '__main__':
 
         # PARTIAL MATCH (threshold=0.50): Calculate and log PRF scores
         logging.info("-- Partial Match (threshold=0.50) --")
+
         p_pc50_5, r_pc50_5, f_pc50_5 = get_PRF(num_pc50_5, num_e_5, num_s)
         print_PRF(p_pc50_5, r_pc50_5, f_pc50_5, 5)
 
         p_pc50_10, r_pc50_10, f_pc50_10 = get_PRF(num_pc50_10, num_e_10, num_s)
         print_PRF(p_pc50_10, r_pc50_10, f_pc50_10, 10)
         
-
         f_pc50_5_scores.append(f_pc50_5*100)
         f_pc50_10_scores.append(f_pc50_10*100)
 
         logging.info('---------------------')
-
-
-
 
 
 
@@ -337,7 +345,5 @@ if __name__ == '__main__':
         }
     }
 
-    evaluation_path = os.path.join(preds_dir_path, "evaluation.json")
-
-    with open(evaluation_path, "w", encoding="utf-8") as f:
+    with open(os.path.join(preds_dir_path, "evaluation.json"), "w", encoding="utf-8") as f:
         json.dump(evaluation, f, indent=4)
