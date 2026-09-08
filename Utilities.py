@@ -117,26 +117,26 @@ def lemmatize_keyphrases(keyphrases_list, nlp): # keyphrases_list for only one d
 
 
 
-def cluster_keywords(keywords, stemmed_keywords, similarity_threshold=0.25): # {stemmed_keywords} or another name we could use is {lemmatized_keywords}
-    n = len(keywords)
+def cluster_keyphrases(keyphrases, normalized_keyphrases, similarity_threshold=0.25): 
+    n = len(keyphrases)
  
     # Edge cases
     if n == 0:
         return []
     if n == 1:
-        return list(keywords)
+        return list(keyphrases)
  
     # -----------------------------------------------------------------
     # Vectorized similarity matrix.
-    # Build a binary bag-of-words matrix (each row = one keyword's stemmed
+    # Build a binary bag-of-words matrix (each row = one keyphrase's normalized
     # tokens as a 0/1 vector over the vocabulary), then compute the full
     # pairwise cosine similarity matrix in one C-level operation.
-    # This replaces the O(n^2) Python loop calling keyword_similarity(),
+    # This replaces the O(n^2) Python loop calling keyphrase_similarity(),
     # and replaces the redundant per-pair set() construction with a single
-    # vectorization pass over all n keywords.
+    # vectorization pass over all n keyphrases.
     # -----------------------------------------------------------------
     vectorizer = CountVectorizer(binary=True, tokenizer=str.split, token_pattern=None, lowercase=False)
-    X = vectorizer.fit_transform(stemmed_keywords)  # shape (n, vocab_size), sparse binary matrix
+    X = vectorizer.fit_transform(normalized_keyphrases)  # shape (n, vocab_size), sparse binary matrix
  
     # cosine_similarity(overlap / sqrt(len_a * len_b)) on binary vectors is exactly
     # equivalent to: |A ∩ B| / sqrt(|A| * |B|)
@@ -144,6 +144,7 @@ def cluster_keywords(keywords, stemmed_keywords, similarity_threshold=0.25): # {
  
     # Convert to distance matrix
     dist_matrix = 1 - sim_matrix
+
     # Numerical safety: cosine_similarity can yield values like 1.0000000002 due to
     # floating point error, which would make distances slightly negative.
     np.clip(dist_matrix, 0, None, out=dist_matrix)
@@ -172,7 +173,7 @@ def cluster_keywords(keywords, stemmed_keywords, similarity_threshold=0.25): # {
         indices = np.where(labels == cluster_id)[0]
  
         if len(indices) == 1:
-            centroids.append(keywords[indices[0]])
+            centroids.append(keyphrases[indices[0]])
             continue
  
         # Sub-matrix of pairwise similarities within this cluster
@@ -187,35 +188,44 @@ def cluster_keywords(keywords, stemmed_keywords, similarity_threshold=0.25): # {
  
         best_local_idx = np.argmax(avg_sims)
         best_idx = indices[best_local_idx]
-        centroids.append(keywords[best_idx])
+        centroids.append(keyphrases[best_idx])
  
     return centroids
 
 
-def cluster_keywords_embeddings(keywords, embeddings, similarity_threshold=0.8):
+
+
+
+
+
+
+
+
+
+def cluster_keyphrase_embeddings(keyphrases, embeddings, similarity_threshold=0.8):
     """
-    Cluster keywords using Hierarchical Agglomerative Clustering (average linkage)
-    based on embedding cosine similarity, and return representative keywords.
+    Cluster keyphrases using Hierarchical Agglomerative Clustering (average linkage)
+    based on embedding cosine similarity, and return representative keyphrases.
  
     Args:
-        keywords (list of str): Candidate keywords/keyphrases.
+        keyphrases (list of str): Candidate keywords/keyphrases.
         embeddings (np.ndarray): Corresponding embedding vectors (n x d).
         similarity_threshold (float): Minimum cosine similarity for clustering.
  
     Returns:
-        list of str: Cluster representative keywords (centroids).
+        list of str: Cluster representative keyphrases (centroids).
     """
  
-    #keywords = list(keywords)
+    #keyphrases = list(keyphrases)
     #embeddings = np.asarray(embeddings)  # Avoid a forced copy if already an ndarray
  
-    n = len(keywords)
+    n = len(keyphrases)
  
     # Edge case: empty or single element
     if n == 0:
         return []
     if n == 1:
-        return keywords
+        return keyphrases
  
     # -----------------------------
     # 1. Compute cosine similarity matrix (already vectorized)
@@ -264,7 +274,7 @@ def cluster_keywords_embeddings(keywords, embeddings, similarity_threshold=0.8):
         indices = np.where(labels == cluster_id)[0]
  
         if len(indices) == 1:
-            centroids.append(keywords[indices[0]])
+            centroids.append(keyphrases[indices[0]])
             continue
  
         cluster_sims = sim_matrix[np.ix_(indices, indices)]  # shape (k, k)
@@ -278,6 +288,6 @@ def cluster_keywords_embeddings(keywords, embeddings, similarity_threshold=0.8):
  
         best_local_idx = np.argmax(avg_sims)
         best_idx = indices[best_local_idx]
-        centroids.append(keywords[best_idx])
+        centroids.append(keyphrases[best_idx])
  
     return centroids

@@ -13,7 +13,7 @@ import concurrent.futures
 
 from tqdm import tqdm
 from RAKE import Rake, Metric
-from Utilities import process_keyphrases, cluster_keywords, cluster_keywords_embeddings, lemmatize_keyphrases
+from Utilities import process_keyphrases, cluster_keyphrases, cluster_keyphrase_embeddings, lemmatize_keyphrases
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize
 from sentence_transformers import SentenceTransformer
@@ -193,9 +193,9 @@ def process_batch_full_pipeline(batch_data_list, batch_index, ke_method, sim_tec
                 convert_to_numpy=True,
                 show_progress_bar=False,
             )
-            keyphrases = cluster_keywords_embeddings(keyphrases, keyphrase_embeddings, sim_threshold)
+            keyphrases = cluster_keyphrase_embeddings(keyphrases, keyphrase_embeddings, sim_threshold)
         else:
-            keyphrases = cluster_keywords(
+            keyphrases = cluster_keyphrases(
                 keyphrases,
                 lemmatize_keyphrases(keyphrases, SPACY_MODEL),
                 sim_threshold,
