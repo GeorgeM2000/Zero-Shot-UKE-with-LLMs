@@ -24,6 +24,9 @@ logging.set_verbosity_error()
 
 
 def get_generated_output(str):
+    # By splitting {str} like this (.split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>')), 
+    # which is the answer of the LLM, you get this text: "\n\nText: {}<|eot_id|>". "Text: {}" contains the generated answer.
+
     split_prompt_output = str.split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
     return split_prompt_output[-1].strip().replace("<|eot_id|>", "")
 
@@ -46,7 +49,7 @@ def get_data_files(data_path, T):
 
     patterns = [
         re.compile( r"^(.+)_MAX([A-Z0-9]+)_(.+)\.jsonl$"), # Matches the datasets created using a KE method (except YAKE) with HAC
-        re.compile(rf"^(.+)_MAX([A-Z0-9]+)_YAKE_{T}\.jsonl$"), # Matches the dataset created using YAKE for a given value of T
+        re.compile(rf"^(.+)_MAX([A-Z0-9]+)_YAKE\.jsonl$"), # Matches the dataset created using YAKE 
         re.compile(rf"^(.+)_MAX([A-Z0-9]+)_TopicRank\.jsonl$") # Matches the dataset created using TopicRank
     ] 
 
@@ -87,11 +90,11 @@ if __name__ == '__main__':
     prompt_template = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{} <|eot_id|><|start_header_id|>user<|end_header_id|>\n\nText: {}<|eot_id|>"
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="Llama3 path") 
+    parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="LLM path") 
     parser.add_argument('--data_path', type=str, default='data/processed', help="Directory path of test datasets") 
     parser.add_argument('--max_new_tokens', type=str, default='64', help="Maximum number of tokens to generate")
     parser.add_argument('--cuda', type=str, default='0', help="GPU") # If there is a GPU, it is labeled as 0
-    parser.add_argument('--auth_token', type=str, default='', help="Authentication token for Llama") 
+    parser.add_argument('--auth_token', type=str, default='', help="Authentication token") 
     parser.add_argument('--T', type=str, default='10', help="Number of keyphrases to extract")
     parser.add_argument('--datasets_max_len', type=str, default='FULL', help="Maximum length of test datasets")
     args = parser.parse_args() 
@@ -155,7 +158,7 @@ if __name__ == '__main__':
         if tokenizer_max_len + max_new_tokens > tokenizer.model_max_length:
             tokenizer_max_len = tokenizer.model_max_length - max_new_tokens
 
-    device = f'cuda:{args.cuda}' if torch.cuda.is_available() else 'cpu' 
+    device = f"cuda:{args.cuda}" if torch.cuda.is_available() else "cpu" 
     model.to(device) # Transfers all model parameters and buffers to the specified compute device. "cuda" → GPU (typical for FP16)
     model.eval() # Puts the model in inference mode. Ensures deterministic behavior (given fixed generation settings)
 

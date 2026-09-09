@@ -52,8 +52,11 @@ tokenizer(prompt, max_length=4096, truncation=True)
 
 
 def get_generated_output(str):
-    split_prompt_output = str.split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
-    return split_prompt_output[-1].strip().replace("<|eot_id|>", "")
+    # By splitting {str} like this (.split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>')), 
+    # which is the answer of the LLM, you get this text: "\n\nText: {}<|eot_id|>". "Text: {}" contains the generated answer.
+
+    split_prompt_output = str.split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>') 
+    return split_prompt_output[-1].strip().replace("<|eot_id|>", "") 
 
 
 
@@ -64,11 +67,11 @@ if __name__ == '__main__':
     prompt_template = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{} <|eot_id|><|start_header_id|>user<|end_header_id|>\n\nText: {}<|eot_id|>"
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="Llama3 path") 
+    parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="LLM path") 
     parser.add_argument('--data_path', type=str, default='data/processed', help="Directory path of test datasets") 
     parser.add_argument('--max_new_tokens', type=str, default='64', help="Maximum number of tokens to generate")
     parser.add_argument('--cuda', type=str, default='0', help="GPU") # If there is a GPU, it is labeled as 0
-    parser.add_argument('--auth_token', type=str, help="Authentication token for Llama") 
+    parser.add_argument('--auth_token', type=str, help="Authentication token to use the LLM") 
     parser.add_argument('--T', type=str, default='10', help="Number of keyphrases to extract")
     parser.add_argument('--datasets_max_len', type=str, default='FULL', help="Maximum length of test datasets")
     args = parser.parse_args() 
@@ -83,7 +86,7 @@ if __name__ == '__main__':
     # The task instruction is the most critical part of this process. The instruction can be changed depending on the task
     task_instruction = f"You are a keyphrase extractor. Extract {T} keyphrases from the text. The answer should be listed after 'Keyphrases: ' and separated by semicolons (;). 'Keyphrases: keyphrase 1 ; keyphrase 2 ; ... ; keyphrase {T}'"
 
-    # Loads a pretrained tokenizer associated with model_name. The tokenizer converts raw text → tokens (integer IDs)
+    # Loads a pretrained tokenizer associated with {model_name}. The tokenizer converts raw text → tokens (integer IDs)
     tokenizer = AutoTokenizer.from_pretrained(model_name, 
                                               token=auth_token) # AutoTokenizer: A factory class that automatically selects the correct tokenizer type. For LLaMA, this is typically a SentencePiece-based tokenizer
     
@@ -107,7 +110,7 @@ if __name__ == '__main__':
             tokenizer_max_len = tokenizer.model_max_length - max_new_tokens
 
 
-    device = f'cuda:{args.cuda}' if torch.cuda.is_available() else 'cpu' # No way we are using CPU
+    device = f"cuda:{args.cuda}" if torch.cuda.is_available() else "cpu" # We are not using CPU
     model.to(device) # Transfers all model parameters and buffers to the specified compute device. "cuda" → GPU (typical for FP16)
     model.eval() # Puts the model in inference mode. Ensures deterministic behavior (given fixed generation settings)
 
@@ -130,8 +133,8 @@ if __name__ == '__main__':
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
 
     result_path = os.path.join('results', 
-                               f"Llama3/Llama3_T{T}", 
-                               f'{timestamp}_vanilla_{datasets_max_len}') # Create a folder like: results/Meta-Llama-3-8B-Instruct/Meta-Llama-3-8B-Instruct_T5/{timestamp}_vanilla_{datasets_max_len}
+                               f"Llama3/Llama3", 
+                               f'{timestamp}_vanilla_{datasets_max_len}') # Create a folder like: results/Llama3/Llama3/{timestamp}_vanilla_{datasets_max_len}
     
     print(f"Results path: {result_path}")
 
@@ -140,15 +143,14 @@ if __name__ == '__main__':
         print(f"Directory created: {result_path}")
     
     # Create a settings file
-    settings_path = os.path.join(result_path, 'settings.json') # results/Meta-Llama-3-8B-Instruct/Meta-Llama-3-8B-Instruct_T5/{timestamp}_vanilla_{datasets_max_len}/settings.json
+    settings_path = os.path.join(result_path, 'settings.json') # results/Llama3/Llama3/{timestamp}_vanilla_{datasets_max_len}/settings.json
     with open(settings_path, 'w') as settings_file:
         json.dump(settings, settings_file, indent=4)
 
     print(f"Settings saved to {settings_path}")
 
 
-    dataset_list = [#'Inspec', 
-                    #'SemEval2017', 
+    dataset_list = [
                     'MDPI',
                     'SemEval2010', 
                     'DUC2001', 
@@ -177,7 +179,7 @@ if __name__ == '__main__':
             perdoc_start_time = time.perf_counter()
 
             doc = j_data['doc'] 
-            prompt = prompt_template.format(task_instruction, doc) # Use the prompt template to insert the document into the prompt and the task instruction
+            prompt = prompt_template.format(task_instruction, doc) # Use the prompt template to insert the document and the task instruction into the prompt
             
 
             if type(datasets_max_len) == str:
@@ -191,7 +193,7 @@ if __name__ == '__main__':
                 if tokenizer_max_len + max_new_tokens > tokenizer.model_max_length:
                     tokenizer_max_len = tokenizer.model_max_length - max_new_tokens
 
-            # The input to the LLM will be the entire prompt (instruction and document). Uses the model’s tokenizer to convert prompt (text) into token IDs.
+            # The input to the LLM will be the entire prompt (instruction and document). Uses the model's tokenizer to convert prompt (text) into token IDs.
             inputs = tokenizer(prompt, 
                                return_tensors="pt", # Returns PyTorch tensors
                                max_length=tokenizer_max_len, # Caps the sequence at {tokenizer_max_len} tokens.
@@ -201,7 +203,7 @@ if __name__ == '__main__':
             # =============================== KE Process ========================================
 
             # Give the input to the LLM and generate an output
-            with torch.inference_mode(): # with torch.no_grad(): # Disables gradient computation → faster and lower memory during inference
+            with torch.inference_mode(): # Alternative: with torch.no_grad(): # Disables gradient computation → faster and lower memory during inference
                 outputs = model.generate(**inputs, # Moves tokenized inputs to the same device as the model (e.g., GPU)
                                          max_new_tokens=max_new_tokens, # Limits how many tokens the model generates 
                                          use_cache=True, # Reuses past key/value states → speeds up generation
@@ -242,13 +244,13 @@ if __name__ == '__main__':
                 perkeyphrase_no_tokens.append(len(kw.split())) # Alternative: len([token for part in kw.split('-') for token in part.split()])
 
 
-        with open(os.path.join(result_path, f'{dataset_name}_result.json'), "w", encoding='utf-8') as f: # The results file is located in: results/Meta-Llama-3-8B-Instruct/{timestamp}/{dataset_name}_result.json
+        with open(os.path.join(result_path, f'{dataset_name}_result.json'), "w", encoding='utf-8') as f: # The results file is located in: results/Llama3/Llama3/{timestamp}_vanilla_{datasets_max_len}/{dataset_name}_result.json
             for json_data in output_list: # For each log in output_list
                 f.write(json.dumps(json_data, ensure_ascii=False) + '\n')
 
 
         stats = {
-            "KE": f"Llama3_T{T}",
+            "KE": f"Llama3",
             "Dataset": dataset_name,
             "T": T,
             "Timestamp": timestamp,
