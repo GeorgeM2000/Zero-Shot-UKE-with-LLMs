@@ -18,7 +18,7 @@ from Utilities import process_keyphrases
 from kneed import KneeLocator
 
 
-INPUT_FOLDER = "/path/to/your/results/folder" 
+INPUT_FOLDER = "/path/to/your/results/folder" # This is the root folder of the results. It is used to get all the stat files
 CAT_OF_SERIAL_KE = "A"
 
 
@@ -103,8 +103,7 @@ def create_parallel_settings(data, ke_method, dataset_name, no_docs, reserve_cor
     cores = max(1, cores - reserve_cores)
  
     serial_runtime = data[ke_method][dataset_name]["Runtime"]["Per_Dataset"]
-    # Fixed: build [T1/1, T1/2, T1/3, ...] from the ORIGINAL serial runtime,
-    # not by repeatedly dividing the previous (already-divided) value.
+    # Fixed: build [T1/1, T1/2, T1/3, ...] from the ORIGINAL serial runtime.
     runtimes = [serial_runtime / n for n in range(1, cores + 1)]
  
     # Fixed: find_knee_with_kneedle now returns a single core count directly.
@@ -117,7 +116,7 @@ def create_parallel_settings(data, ke_method, dataset_name, no_docs, reserve_cor
     batch_ranges = []
     start = 0
     while start < no_docs:
-        end = min(start + batch_size, no_docs)  # Ensure the last range includes all remaining abstracts
+        end = min(start + batch_size, no_docs)  # Ensure the last range includes all remaining documents
         batch_ranges.append([start, end])
         start = end
  
@@ -304,7 +303,7 @@ if __name__ == '__main__':
             continue
 
         if category == CAT_OF_SERIAL_KE:
-            data.setdefault(ke, {})[dataset] = record # Note: We create a statistics JSON file for each dataset of a given KE method
+            data.setdefault(ke, {})[dataset] = record # NOTE: We create a statistics JSON file for each dataset of a given KE method
 
 
 

@@ -150,8 +150,7 @@ def load_stats_file(path):
         return json.load(f)
 
 
-def process_batch_full_pipeline(batch_data_list, batch_index, ke_method, sim_technique, sim_threshold,
-                                 kpminer_weights_file=None):
+def process_batch_full_pipeline(batch_data_list, batch_index, ke_method, sim_technique, sim_threshold):
     """
     Runs the FULL per-document pipeline -- KE extraction, then per-document
     .encode() (if sim_technique == 'Eb'), then per-document HAC clustering
@@ -241,7 +240,7 @@ if __name__ == '__main__':
     parser.add_argument('--ke_method', type=str, default='RAKE', help="The keyword/keyphrase extraction method")
     parser.add_argument('--data_path', type=str, default='data/processed', help="Directory path of test datasets")
     parser.add_argument('--similarity_technique', type=str, default='Eb', choices=['Eb', 'NEb'], help="Similarity technique (Embedding-based or Non-Embedding-based)")
-    parser.add_argument('--similarity_threshold', type=str, default='0.25', help="Similarity threshold")
+    parser.add_argument('--similarity_threshold', type=str, default='0.8', help="Similarity threshold")
     parser.add_argument('--datasets_max_len', type=str, default='FULL', help="Maximum length of test datasets")
     args = parser.parse_args()
 
@@ -297,7 +296,7 @@ if __name__ == '__main__':
             continue
 
         if category == CAT_OF_SERIAL_KE:
-            data.setdefault(ke, {})[dataset] = record # Note: We create a statistics JSON file for each dataset of a given KE method
+            data.setdefault(ke, {})[dataset] = record # NOTE: We create a statistics JSON file for each dataset of a given KE method
 
 
     # This must match the "KE" field the SERIAL script (KE_with_Clustering.py)

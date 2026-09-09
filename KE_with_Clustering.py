@@ -61,7 +61,7 @@ if __name__ == '__main__':
         
     # Load only once
     if sim_technique == 'Eb': # Embedding-based (Eb) Non-Embedding-based (NEb)
-        embedding_model = SentenceTransformer('all-mpnet-base-v2')
+        embedding_model = SentenceTransformer('all-mpnet-base-v2', device='cpu')
 
 
     # Create a timestamp, e.g 2026-05-03_07-29-30
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
 
     result_path = os.path.join('results', 
-                               f"{ke_method}/HAC_{sim_technique}_{int(sim_threshold*100)}", 
+                               f"{ke_method}/HAC_{sim_technique}_{int(sim_threshold * 100)}", 
                                f'{timestamp}_{datasets_max_len}') # Create a folder like: results/RAKE/HAC_NEb_25/{timestamp}_{datasets_max_len}
     
 
@@ -79,8 +79,7 @@ if __name__ == '__main__':
         os.makedirs(result_path)
         print(f"Directory created: {result_path}")
     
-    dataset_list = [#'Inspec', 
-                    #'SemEval2017', 
+    dataset_list = [
                     'MDPI',
                     'SemEval2010', 
                     'DUC2001', 
@@ -206,14 +205,14 @@ if __name__ == '__main__':
 
 
         with open(os.path.join(data_path, 
-                               f'{dataset_name}_MAX{datasets_max_len}_{ke_method}_HAC_{sim_technique}_{int(sim_threshold*100)}.jsonl'), 
+                               f'{dataset_name}_MAX{datasets_max_len}_{ke_method}_HAC_{sim_technique}_{int(sim_threshold * 100)}.jsonl'), 
                                "w", encoding='utf-8') as f:
             
             for json_data in jsonl_lines:
                 f.write(json.dumps(json_data, ensure_ascii=False) + '\n')
 
         stats = {
-            "KE": f"{ke_method}_HAC_{sim_technique}_{int(sim_threshold*100)}",
+            "KE": f"{ke_method}_HAC_{sim_technique}_{int(sim_threshold * 100)}",
             "Dataset": dataset_name,
             "Timestamp": timestamp,
             "Datasets_Max_Length": datasets_max_len,

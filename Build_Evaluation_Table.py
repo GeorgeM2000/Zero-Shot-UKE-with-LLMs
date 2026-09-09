@@ -135,8 +135,8 @@ def load_json_file(path):
 
 def build_table(data, ke_methods, metrics, output_csv, datasets_max_len):
     """Build and write one CSV table (either the f1@5 or f1@10 version)."""
-    columns = DATASET_NAMES + [AVERAGE_LABEL]
-    k = len(metrics)
+    columns = DATASET_NAMES + [AVERAGE_LABEL] # The main columns. Each column contains k sub-columns
+    k = len(metrics) # k sub-columns
 
     header_row1 = ["KE Method"]
     header_row2 = [""]
@@ -150,6 +150,7 @@ def build_table(data, ke_methods, metrics, output_csv, datasets_max_len):
         record = data.get(ke, {})
         row = [ke]
         for column in columns:
+            
             if column == AVERAGE_LABEL:
                 source = record.get("average")
             else:
@@ -225,6 +226,7 @@ def main():
         if ke in data:
             print(f"  [WARNING] Duplicate KE method '{ke}' found again in {path}; "
                   f"overwriting previous entry for this KE method.")
+
         data[ke] = record
 
 
@@ -253,9 +255,6 @@ def main():
             f"{unknown_categories}. Add them to GROUP_ORDER (in your desired group order)."
         )
  
-
-
-
     ke_methods = sorted(
         data.keys(),
         key=lambda ke: (GROUP_ORDER.index(data[ke]["Category"]), ke)
@@ -266,7 +265,8 @@ def main():
 
     print(f"The Keyword Extraction (KE) methods are: ")
     for ke in ke_methods:
-        print()
+        print(ke)
+
     print()
 
     if not ke_methods:

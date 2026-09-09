@@ -110,7 +110,7 @@ if __name__ == '__main__':
     timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
 
     result_path = os.path.join('results', 
-                               f"{ke_method}/{ke_method}" if ke_method != 'YAKE' else f"{ke_method}/{ke_method}_T{T}", 
+                               f"{ke_method}/{ke_method}", #if ke_method != 'YAKE' else f"{ke_method}/{ke_method}_T{T}
                                f'{timestamp}_{datasets_max_len}') # Create a folder like: results/RAKE/RAKE/{timestamp}_{datasets_max_len} or results/YAKE/YAKE_T5/{timestamp}_{datasets_max_len}
     
     print(f"Results path: {result_path}")
@@ -120,8 +120,7 @@ if __name__ == '__main__':
         print(f"Directory created: {result_path}")
     
     
-    dataset_list = [#'Inspec', 
-                    #'SemEval2017', 
+    dataset_list = [ 
                     'MDPI',
                     'SemEval2010', 
                     'DUC2001', 
@@ -233,7 +232,9 @@ if __name__ == '__main__':
                 line['normalized_label'] = log['normalized_label']
                 jsonl_lines.append(line)
 
-            with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}_{ke_method}_{T}.jsonl' if ke_method == 'YAKE' else f'{dataset_name}_MAX{datasets_max_len}_{ke_method}.jsonl'), "w", encoding='utf-8') as f:
+            with open(os.path.join(data_path, f'{dataset_name}_MAX{datasets_max_len}_{ke_method}.jsonl'), #f'{dataset_name}_MAX{datasets_max_len}_{ke_method}_{T}.jsonl' if ke_method == 'YAKE' else f'{dataset_name}_MAX{datasets_max_len}_{ke_method}.jsonl'
+                        "w", encoding='utf-8') as f:
+                        
                 for json_data in jsonl_lines:
                     f.write(json.dumps(json_data, ensure_ascii=False) + '\n')
 

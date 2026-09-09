@@ -298,7 +298,7 @@ def main():
             elif ke_categories[ke] != category: # If the extracted category of a given KE method does not match its existing category ... 
                 category_warnings.append((path, ke, ke_categories[ke], category))
 
-        data.setdefault(ke, {})[dataset] = record # Note: We create a statistics JSON file for each dataset of a given KE method
+        data.setdefault(ke, {})[dataset] = record # NOTE: We create a statistics JSON file for each dataset of a given KE method
 
 
         # Data will look something like this:
