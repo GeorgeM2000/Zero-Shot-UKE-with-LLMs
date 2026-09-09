@@ -71,7 +71,7 @@ METADATA_FIELDS = [
     # ("T", "T"),
 ]
 
-# The filename suffix used to identify stats files.
+# The filename suffix used to identify statistical files.
 FILENAME_SUFFIX = "_stats.json"
 
 # Only files whose immediate parent folder name contains this value (as a
@@ -86,22 +86,30 @@ TARGET_MAX_LEN = "FULL"
 # This list must contain every category value that appears in your files.
 GROUP_ORDER = ["A", "B", "C", "D", "E", "F", "G", "H"]
 
-# ---- Config for the 2nd, 3rd, ... ("merged runtime") tables -----------------------
+# ---- Config for the subsequent (2nd, 3rd, ...) ("merged runtime") tables -----------------------
 # The primary category whose KE method names become the rows of the subsequent
 # tables. Each primary-category KE method's name must contain, as a
 # substring, the name of exactly one KE method from one of the secondary
 # categories below. That secondary method's "Runtime.Per_Dataset" value (per
 # dataset) is added to the primary method's own "Runtime.Per_Dataset" value.
+# The first primary category corresponds to LLMs (Llama3 or Gemma) evaluated 
+# in normal mode. The second primary category corresponds to the same LLMs
+# evaluated in vLLM mode.
+
 PRIMARY_CATEGORY_OPTIONS = ["A", "B"]
 PRIMARY_CATEGORY = None
-SECONDARY_CATEGORIES = ["C", "D"]
+SECONDARY_CATEGORIES = ["C", "D"] # The secondary categories DON'T change 
 
 
-
-LLM_OPTIONS = ["Llama3", "Gemma"]
+# Just in case you add Gemma to the evaluation
+LLM_OPTIONS = ["Llama3", "Gemma"] 
 LLM = None
 
-LLM_MODE_OPTIONS = ["", "vLLM"]
+# LLMs are evaluated in two modes. The vLLM mode is used for faster processing by 
+# utilizing the GPU more efficiently. If vLLM is not used, the chosen LLM (Llama3 or Gemma) 
+# generates answers per document regardless of how short or long the documents are. Thus, 
+# the GPU is not fully utilized. 
+LLM_MODE_OPTIONS = ["", "vLLM"] 
 LLM_MODE = None
 
 # =========================================================================
@@ -161,8 +169,8 @@ def match_secondary_to_primary(primary_names, secondary_names):
     Raises SystemExit if a secondary name has zero or multiple matches,
     or if a primary name ends up with more than one match."""
 
-    secondary_names = ["_".join(sn.split("_")[1:]) for sn in secondary_names]
-    primary_names = ["_".join(pn.split("_")[2:]) for pn in primary_names]
+    secondary_names = ["_".join(sn.split("_")[1:]) for sn in secondary_names] # sn.split("_")[1:] removes the "Parallel_" part from the secondary KE names
+    primary_names = ["_".join(pn.split("_")[1:]) for pn in primary_names] # pn.split("_")[1:] removes the LLM name (Llama3 or Gemma) and keeps the KE name
 
 
     primary_to_secondary = {}
@@ -191,6 +199,8 @@ def match_secondary_to_primary(primary_names, secondary_names):
             )
         primary_to_secondary[f"{LLM}{LLM_MODE}_{primary_name}"] = f"Parallel_{sec_name}"
  
+
+    primary_names = [f"{LLM}{LLM_MODE}_{pn}" for pn in primary_names]
     missing = sorted(set(primary_names) - set(primary_to_secondary.keys()))
     if missing:
         raise SystemExit(
@@ -202,7 +212,7 @@ def match_secondary_to_primary(primary_names, secondary_names):
  
  
 def build_merged_runtime_table(data, ke_categories, datasets):
-    """Build the rows for the second and third table: primary-category KE methods,
+    """Build the rows for the subsequent tables: primary-category KE methods,
     one 'Runtime.Per_Dataset' sub-column per dataset, where each value is
     the primary method's own Runtime.Per_Dataset plus its matched
     secondary-category method's Runtime.Per_Dataset (same dataset).
@@ -212,8 +222,9 @@ def build_merged_runtime_table(data, ke_categories, datasets):
     primary_names =   [ke for ke, cat in ke_categories.items() if cat == PRIMARY_CATEGORY and LLM in ke]
     secondary_names = [ke for ke, cat in ke_categories.items() if cat in SECONDARY_CATEGORIES]
  
+
     primary_to_secondary = match_secondary_to_primary(primary_names, secondary_names)
- 
+
     primary_names_sorted = sorted(primary_names)
  
     data_rows = []
@@ -290,7 +301,7 @@ def main():
         data.setdefault(ke, {})[dataset] = record # Note: We create a statistics JSON file for each dataset of a given KE method
 
 
-        # Something like this:
+        # Data will look something like this:
         """
         data = {
             RAKE: {
@@ -344,9 +355,10 @@ def main():
     )
 
 
-    print(f"The Keyword Extraction (KE) methods are: ")
+    print(f"The Keyword Extraction (KE) methods (ordered by their category) are: ")
     for ke in ke_methods:
-        print()
+        print(ke)
+
     print()
 
 
@@ -357,7 +369,6 @@ def main():
         return
 
     
-
     # Combine stat metrics + metadata fields into the ordered list of
     # sub-columns for each dataset block.
     all_fields = STAT_METRICS + METADATA_FIELDS  # [(display_name, dotted_path), ...]
@@ -396,9 +407,9 @@ def main():
     # ---------------------------------------------------------------
     # Write CSV: first table, then the merged-runtime tables below it
     # ---------------------------------------------------------------
-    PRIMARY_CATEGORY = PRIMARY_CATEGORY_OPTIONS[0]
+    PRIMARY_CATEGORY = PRIMARY_CATEGORY_OPTIONS[0] 
     LLM = LLM_OPTIONS[0] # Llama3
-    LLM_MODE = LLM_MODE_OPTIONS[0] # Normal mode
+    LLM_MODE = LLM_MODE_OPTIONS[0] # Normal mode (no efficient GPU utilization)
 
     mrt1_primary_names_sorted, mrt1_merged_data_rows = build_merged_runtime_table(data, ke_categories, datasets)
  
@@ -412,6 +423,7 @@ def main():
 
     PRIMARY_CATEGORY = PRIMARY_CATEGORY_OPTIONS[1]
     LLM_MODE = LLM_MODE_OPTIONS[1] # vLLM mode
+
     mrt2_primary_names_sorted, mrt2_merged_data_rows = build_merged_runtime_table(data, ke_categories, datasets)
  
     mrt2_merged_header_row1 = ["KE Method"]
@@ -449,6 +461,7 @@ def main():
 
     PRIMARY_CATEGORY = PRIMARY_CATEGORY_OPTIONS[1]
     LLM_MODE = LLM_MODE_OPTIONS[1] # vLLM mode
+
     mrt4_primary_names_sorted, mrt4_merged_data_rows = build_merged_runtime_table(data, ke_categories, datasets)
  
     mrt4_merged_header_row1 = ["KE Method"]
@@ -476,7 +489,7 @@ def main():
         writer.writerow([])
 
         # TABLE 2
-        writer.writerow([f"Merged Runtime Table (Category '{PRIMARY_CATEGORY_OPTIONS[0]}' "
+        writer.writerow([f"{LLM_OPTIONS[0]}{LLM_MODE_OPTIONS[0]} Merged Runtime Table (Category '{PRIMARY_CATEGORY_OPTIONS[0]}' "
                           f"+ matched {SECONDARY_CATEGORIES} method)"])
                           
         writer.writerow(mrt1_merged_header_row1)
@@ -487,16 +500,38 @@ def main():
         writer.writerow([])
 
         # TABLE 3
-        writer.writerow([f"Merged Runtime Table (Category '{PRIMARY_CATEGORY_OPTIONS[1]}' "
+        writer.writerow([f"{LLM_OPTIONS[0]}{LLM_MODE_OPTIONS[1]} Merged Runtime Table (Category '{PRIMARY_CATEGORY_OPTIONS[1]}' "
                           f"+ matched {SECONDARY_CATEGORIES} method)"])
                           
         writer.writerow(mrt2_merged_header_row1)
         writer.writerow(mrt2_merged_header_row2)
         writer.writerows(mrt2_merged_data_rows)
 
+        writer.writerow([])  # blank spacer row between tables
+        writer.writerow([])
+
 
         # REMINDER: When you run experiments with Gemma, add two more merged-runtime tables for Gemma
+        """
+        # TABLE 4
+        writer.writerow([f"{LLM_OPTIONS[1]}{LLM_MODE_OPTIONS[0]} Merged Runtime Table (Category '{PRIMARY_CATEGORY_OPTIONS[0]}' "
+                          f"+ matched {SECONDARY_CATEGORIES} method)"])
+                          
+        writer.writerow(mrt3_merged_header_row1)
+        writer.writerow(mrt3_merged_header_row2)
+        writer.writerows(mrt3_merged_data_rows)
 
+        writer.writerow([])  # blank spacer row between tables
+        writer.writerow([])
+
+        # TABLE 5
+        writer.writerow([f"{LLM_OPTIONS[1]}{LLM_MODE_OPTIONS[1]} Merged Runtime Table (Category '{PRIMARY_CATEGORY_OPTIONS[1]}' "
+                          f"+ matched {SECONDARY_CATEGORIES} method)"])
+                          
+        writer.writerow(mrt4_merged_header_row1)
+        writer.writerow(mrt4_merged_header_row2)
+        writer.writerows(mrt4_merged_data_rows)
+        """
 
 
 
@@ -507,9 +542,16 @@ def main():
     print(f"Wrote table 2 (merged runtime) with {len(mrt1_primary_names_sorted)} KE method(s) x "
           f"{len(datasets)} dataset(s) x 1 sub-column.")
 
-
     print(f"Wrote table 3 (merged runtime) with {len(mrt2_primary_names_sorted)} KE method(s) x "
           f"{len(datasets)} dataset(s) x 1 sub-column.")
+
+    """
+    print(f"Wrote table 4 (merged runtime) with {len(mrt3_primary_names_sorted)} KE method(s) x "
+          f"{len(datasets)} dataset(s) x 1 sub-column.")
+
+    print(f"Wrote table 5 (merged runtime) with {len(mrt4_primary_names_sorted)} KE method(s) x "
+          f"{len(datasets)} dataset(s) x 1 sub-column.")
+    """
 
     print(f"Both tables written to:\n  {OUTPUT_CSV}")
     print(f"Datasets Max Length: {datasets_max_length}")
