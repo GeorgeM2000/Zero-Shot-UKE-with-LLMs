@@ -66,7 +66,12 @@ def detect_iqr_outliers(lengths):
     q3 = float(np.percentile(lengths_arr, 75))
     iqr = q3 - q1
     upper_threshold = q3 + 1.5 * iqr
+
+    # {outlier_mask} is a 0 or 1 array. For each document length in {lengths_arr}, if that length > {upper_threshold} --> Mark the document as an outlier.
+    # 0 --> Documents that don't exceed the {upper_threshold}. These documents are NOT outliers. 1 --> Documents that exceed the {upper_threshold}. These
+    # documents are outliers.
     outlier_mask = lengths_arr > upper_threshold
+
     return q1, q3, iqr, upper_threshold, outlier_mask
 
 
@@ -83,32 +88,34 @@ def prepare_file_plan(data_path, data_file, tokenizer, task_instruction, prompt_
 
     Returns a dict describing the fully prepared file.
     """
+
     with open(os.path.join(data_path, data_file), "r", encoding='utf-8') as f:
         lines = f.readlines()
         data_list = [json.loads(line.strip()) for line in lines]
 
     lengths = []
-    for j_data in data_list:
+
+    # For each document (TITLE + KEYWORDS) in a data file produced by a KE method with or without clustering for a dataset (MDPI, Krapivin, ...)
+    for j_data in data_list:  
         keyphrases = j_data['keyphrases'][:T]
-        doc_text = build_doc_text(j_data['title'], keyphrases)
-        lengths.append(tokenized_len(tokenizer, doc_text))
+        doc_text = build_doc_text(j_data['title'], keyphrases) # Returns this: f"TITLE: {j_data['title']}. KEYWORDS: {'; '.join(keyphrases)}"
+        lengths.append(tokenized_len(tokenizer, doc_text)) # e.g. [1078, 3067, 8067, ..., 5078]
 
     lengths_arr = np.array(lengths)
     q1, q3, iqr, upper_threshold, outlier_mask = detect_iqr_outliers(lengths)
 
-    non_outlier_lengths = lengths_arr[~outlier_mask]
-    if non_outlier_lengths.size > 0:
-        budget = int(non_outlier_lengths.max())
-    else:
-        # Degenerate case: IQR flagged everything -- fall back to the max of all documents
-        budget = int(lengths_arr.max())
+    non_outlier_lengths = lengths_arr[~outlier_mask] # Select the document lengths that DON'T exceed the {upper_threshold}, i.e., are not outliers
+    if non_outlier_lengths.size > 0: # If there are non-outlier documents ...
+        budget = int(non_outlier_lengths.max()) # Select the maximum length among these non-outlier documents 
+    else: # If no documents exist that are not outliers ...
+        budget = int(lengths_arr.max()) # Degenerate case: IQR flagged everything -- fall back to the max of all documents
 
     num_outliers = int(outlier_mask.sum())
 
     prepared_docs = []
     num_truncated = 0
 
-    for j_data, length in zip(data_list, lengths):
+    for j_data, length in zip(data_list, lengths): # {data_list} and {lengths} are aligned. For each document in {data_list}, there is its corresponding length
         keyphrases = j_data['keyphrases'][:T]
         doc_text = build_doc_text(j_data['title'], keyphrases)
 
@@ -124,7 +131,7 @@ def prepare_file_plan(data_path, data_file, tokenizer, task_instruction, prompt_
             was_truncated = False
             final_len = length
 
-        prompt = prompt_template.format(task_instruction, doc_text_final)
+        prompt = prompt_template.format(task_instruction, doc_text_final) # This is the prompt that will be used as input to the vLLM engine
 
         prepared_docs.append({
             "j_data": j_data,
@@ -259,18 +266,27 @@ if __name__ == '__main__':
     # ================================================================================
 
     file_plans = []
+
+    # For each data file, prepare its final prompts (prompt symbols + task instruction + sliced/truncated (TITLE + KEYWORDS) segment)
+    # that will be given as input to the vLLM engine.
     for data_file in data_files:
         print(f"\nPreparing: {data_file}")
+
         plan = prepare_file_plan(
             data_path, data_file, tokenizer, task_instruction, prompt_template, T, prompt_overhead_tokens
         )
+
         print(f"  Q1={plan['q1']:.2f}  Q3={plan['q3']:.2f}  IQR={plan['iqr']:.2f}  "
               f"Upper threshold={plan['upper_threshold']:.2f}")
         print(f"  Outliers detected: {plan['num_outliers']}  |  Budget: {plan['budget']}  |  "
               f"max_model_len: {plan['max_model_len']}")
         print(f"  Documents truncated: {plan['num_truncated']} / {len(plan['prepared_docs'])}")
+
         file_plans.append(plan)
 
+
+    # Each data file will also have a {max_model_len} value that will be used to group data files. Each group will
+    # correspond to one vLLM engine creation/instantiation.
     groups = group_file_plans(file_plans, tolerance_frac=engine_group_tolerance)
 
     print(f"\n[ENGINE GROUPING] {len(groups)} engine group(s) for {len(file_plans)} file(s) "
