@@ -160,36 +160,53 @@ def prepare_file_plan(data_path, data_file, tokenizer, task_instruction, prompt_
 
 def group_file_plans(file_plans, tolerance_frac=0.15):
     """
-    Sorts file plans by their required max_model_len (ascending), then
-    greedily groups consecutive files whose max_model_len stays within
+    Sorts file plans by their required {max_model_len} (ascending), then
+    greedily groups consecutive files whose {max_model_len} stays within
     tolerance_frac (relative) of the group's current max. A new group starts
     whenever the next file's requirement exceeds that tolerance.
 
     Since these are one-dimensional values, this sequential/greedy approach
-    is equivalent in spirit to the earlier bin-packing discussion, just
-    applied to max_model_len instead of batch-size budget.
+    is equivalent in spirit to bin-packing, just applied to {max_model_len} 
+    instead of batch-size budget.
 
-    Returns a list of dicts: {"plans": [...], "engine_max_model_len": int}
+    Returns a list of dicts: {"plans": [...], "engine_max_model_len": int}.
+    Each dict will contain file plans that belong to some group, and the {max_model_len}
+    representing the file plans of that group.
     """
-    sorted_plans = sorted(file_plans, key=lambda p: p["max_model_len"])
+    sorted_plans = sorted(file_plans, key=lambda p: p["max_model_len"]) # Sort file plans based on their {max_model_len} value
 
     groups = []
     current_group = []
     group_max = None
 
     for plan in sorted_plans:
-        if not current_group:
-            current_group = [plan]
-            group_max = plan["max_model_len"]
-        elif abs(plan["max_model_len"] - group_max) / group_max <= tolerance_frac:
+
+        if not current_group: # If the current group is empty ...
+            current_group = [plan] # Place the current plan to the group
+
+            # The {max_model_len} of the current group will be the {max_model_len} of the current plan
+            group_max = plan["max_model_len"] 
+
+        # If the current group is not empty and the {max_model_len} of the current plan is relatively "close" to the already existing {group_max} ...
+        elif abs(plan["max_model_len"] - group_max) / group_max <= tolerance_frac: 
             current_group.append(plan)
-            group_max = max(group_max, plan["max_model_len"])
+
+            # The new {max_model_len} of the group will either be the {max_model_len} of the current plan, or the existing {group_max}
+            group_max = max(group_max, plan["max_model_len"]) 
+        
+        # In any other case ...
         else:
-            groups.append({"plans": current_group, "engine_max_model_len": group_max})
+            # Halt the creation of the current group, append it to the {groups} list, and the {max_model_len} of the entire current group will be {group_max}
+            groups.append({"plans": current_group, "engine_max_model_len": group_max}) 
+            
+            # Create a new current group which will contain the current plan 
             current_group = [plan]
+
+            # The new {group_max} will be the current plan's {max_model_len}
             group_max = plan["max_model_len"]
 
-    if current_group:
+    # The last current group will contain all remaining file plans. So, append it to {groups}
+    if current_group: 
         groups.append({"plans": current_group, "engine_max_model_len": group_max})
 
     return groups
@@ -291,6 +308,7 @@ if __name__ == '__main__':
 
     print(f"\n[ENGINE GROUPING] {len(groups)} engine group(s) for {len(file_plans)} file(s) "
           f"(tolerance={engine_group_tolerance})")
+
     for i, group in enumerate(groups):
         file_names = [p["data_file"] for p in group["plans"]]
         print(f"  Group {i}: engine_max_model_len={group['engine_max_model_len']}  files={file_names}")
@@ -315,12 +333,12 @@ if __name__ == '__main__':
 
             data_file = plan["data_file"]
             prepared_docs = plan["prepared_docs"]
-            budget = plan["budget"]
-            max_model_len = plan["max_model_len"]
+            budget = plan["budget"] # Used for logging only
+            max_model_len = plan["max_model_len"] # Used for logging only
 
             print(f"\nGenerating: {data_file}")
 
-            prompts = [d["prompt"] for d in prepared_docs]
+            prompts = [d["prompt"] for d in prepared_docs] 
 
             # ============================ Timed region ============================
             # Only generation + output_list construction are timed.
@@ -378,7 +396,7 @@ if __name__ == '__main__':
             dataset = data_info[0]
             ke_method = data_info[2]
 
-            if len(data_info) == 4 or len(data_info) == 3:
+            if len(data_info) == 3:
                 clustering_technique = None
                 similarity_technique = None
                 similarity_threshold = None
@@ -390,7 +408,7 @@ if __name__ == '__main__':
                 raise ValueError(f"Unexpected filename format: {data_file}")
 
             settings = {
-                'model_name': f"{model_name.split('/')[-1]}_{ke_method}" if clustering_technique is None else f"{model_name.split('/')[-1]}_{ke_method}_{clustering_technique}_{similarity_technique}_{int(float(similarity_threshold) * 100)}",
+                'model_name': f"Llama3vLLM_{ke_method}" if clustering_technique is None else f"Llama3vLLM_{ke_method}_{clustering_technique}_{similarity_technique}_{int(float(similarity_threshold) * 100)}",
                 'task_instruction': task_instruction,
                 'max_new_tokens': int(max_new_tokens),
                 'budget_method': 'IQR',
@@ -400,8 +418,8 @@ if __name__ == '__main__':
                 'upper_threshold': plan['upper_threshold'],
                 'num_outliers': plan['num_outliers'],
                 'budget': budget,
-                'max_model_len': max_model_len,
-                'engine_max_model_len': engine_max_model_len,
+                'max_model_len': max_model_len, # The {max_model_len} of the individual plan
+                'engine_max_model_len': engine_max_model_len, # The {max_model_len} of the group to which the plan belongs to
                 'engine_group_tolerance': engine_group_tolerance,
                 'gpu_memory_utilization': gpu_memory_utilization,
                 'documents_truncated': plan['num_truncated'],
@@ -415,14 +433,14 @@ if __name__ == '__main__':
 
             if clustering_technique is None:
                 result_path = os.path.join(
-                    "results", model_name.split("/")[-1], ke_method, str(T),
-                    f"{timestamp}_vllm_iqr",
+                    "results", "Llama3vLLM", ke_method,
+                    f"{timestamp}_vllm_custom_{datasets_max_len}",
                 )
             else:
                 result_path = os.path.join(
-                    "results", model_name.split("/")[-1], ke_method, str(T),
+                    "results", "Llama3vLLM", ke_method,
                     clustering_technique, similarity_technique, str(similarity_threshold),
-                    f"{timestamp}_vllm_iqr",
+                    f"{timestamp}_vllm_custom_{datasets_max_len}",
                 )
 
             print(f"Results path: {result_path}")
@@ -446,7 +464,7 @@ if __name__ == '__main__':
             # ============================ Statistics ============================
 
             stats = {
-                "KE": f"Llama3vLLM_T{T}_{ke_method}" if clustering_technique is None else f"Llama3vLLM_T{T}_{ke_method}_{clustering_technique}_{similarity_technique}_{int(float(similarity_threshold) * 100)}",
+                "KE": f"Llama3vLLM_{ke_method}" if clustering_technique is None else f"Llama3vLLM_{ke_method}_{clustering_technique}_{similarity_technique}_{int(float(similarity_threshold) * 100)}",
                 "Dataset": dataset,
                 "T": T,
                 "Timestamp": timestamp,
