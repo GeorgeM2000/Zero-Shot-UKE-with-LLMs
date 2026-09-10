@@ -24,8 +24,9 @@ logging.set_verbosity_error()
 
 
 def get_generated_output(str):
-    # By splitting {str} like this (.split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>')), 
-    # which is the answer of the LLM, you get this text: "\n\nText: {}<|eot_id|>". "Text: {}" contains the generated answer.
+    # By splitting {str} like this: .split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>'), 
+    # you get the following text as a result: "\n\nText: {}<|eot_id|>". "Text: {}" contains the generated answer.
+    # {str} represents the entire answer of the LLM.
 
     split_prompt_output = str.split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>')
     return split_prompt_output[-1].strip().replace("<|eot_id|>", "")
@@ -42,7 +43,7 @@ def next_power_of_two(x):
  get_data_files() returns:
     1) The test datasets in data/processed that were created using a KE method with or without a clustering method
     2) The maximum token length of all test datasets
-    3) The mean or median token length of all test datasets
+    3) The average or median token length of all test datasets
 
 """
 def get_data_files(data_path, T):
@@ -134,7 +135,7 @@ if __name__ == '__main__':
     task_instruction = f"You are a keyphrase synthesis assistant. Given a document where the title appears after TITLE: and the initial semicolon-separated list of keywords appears after KEYWORDS:, produce exactly {T} concise, relevant, and informative keyphrases by refining, normalizing, combining, removing irrelevant entries, and adding important concepts implied by the title or existing keywords, using both as relevance anchors. The answer should be listed after 'Keyphrases: ' and separated by semicolons (;). 'Keyphrases: keyphrase 1 ; keyphrase 2 ; ... ; keyphrase {T}'"
 
 
-    # Loads a pretrained tokenizer associated with model_name. The tokenizer converts raw text → tokens (integer IDs)
+    # Loads a pretrained tokenizer associated with {model_name}. The tokenizer converts raw text → tokens (integer IDs)
     tokenizer = AutoTokenizer.from_pretrained(model_name, 
                                               token=auth_token) # AutoTokenizer: A factory class that automatically selects the correct tokenizer type. For LLaMA, this is typically a SentencePiece-based tokenizer
     
@@ -204,6 +205,8 @@ if __name__ == '__main__':
 
             prompt = prompt_template.format(task_instruction, doc) 
 
+
+            # Calculate the {tokenizer_max_len} dynamically for each document
             if type(datasets_max_len) == str:
                 tokenizer_max_len = len(
                     tokenizer(
@@ -216,7 +219,7 @@ if __name__ == '__main__':
                     tokenizer_max_len = tokenizer.model_max_length - max_new_tokens
             
 
-            # The input to the LLM will be the entire prompt (instruction and document). Uses the model’s tokenizer to convert prompt (text) into token IDs.
+            # The input to the LLM will be the entire prompt (instruction and document). Uses the model's tokenizer to convert prompt (text) into token IDs.
             inputs = tokenizer(prompt, 
                                return_tensors="pt", # Returns PyTorch tensors
                                max_length=tokenizer_max_len, # Caps the sequence at {tokenizer_max_len} tokens.
@@ -276,8 +279,8 @@ if __name__ == '__main__':
         dataset = data_info[0]
         ke_method = data_info[2]
 
-        if len(data_info) == 4 or len(data_info) == 3:
-            # Example: nus_MAX4096_YAKE_5 or nus_MAX4096_TopicRank
+        if len(data_info) == 3:
+            # Example: nus_MAX4096_YAKE or nus_MAX4096_TopicRank
             clustering_technique = None
             similarity_technique = None
             similarity_threshold = None
@@ -292,7 +295,7 @@ if __name__ == '__main__':
             raise ValueError(f"Unexpected filename format: {data_file}")
 
         settings = {
-            'model_name': f"Llama3_{ke_method}" if clustering_technique is None else f"Llama3_{ke_method}_{clustering_technique}_{similarity_technique}_{int(similarity_threshold*100)}",
+            'model_name': f"Llama3_{ke_method}" if clustering_technique is None else f"Llama3_{ke_method}_{clustering_technique}_{similarity_technique}_{int(similarity_threshold * 100)}",
             'task_instruction': task_instruction,
             'max_new_tokens': int(max_new_tokens),
             'tokenizer_max_len': "Dynamic" if type(datasets_max_len) == str else tokenizer_max_len,
@@ -310,7 +313,6 @@ if __name__ == '__main__':
                 "results",
                 "Llama3",
                 ke_method,
-                str(T),
                 f"{timestamp}_custom_{datasets_max_len}",
             )
         else:
@@ -318,7 +320,6 @@ if __name__ == '__main__':
                 "results",
                 "Llama3",
                 ke_method,
-                str(T),
                 clustering_technique,
                 similarity_technique,
                 str(similarity_threshold),
@@ -351,7 +352,7 @@ if __name__ == '__main__':
         # =============================== Statistics ========================================
 
         stats = {
-            "KE": f"Llama3_T{T}_{ke_method}" if clustering_technique is None else f"Llama3_T{T}_{ke_method}_{clustering_technique}_{similarity_technique}_{int(similarity_threshold*100)}",
+            "KE": f"Llama3_{ke_method}" if clustering_technique is None else f"Llama3_{ke_method}_{clustering_technique}_{similarity_technique}_{int(similarity_threshold * 100)}",
             "Dataset": dataset,
             "T": T,
             "Timestamp": timestamp,

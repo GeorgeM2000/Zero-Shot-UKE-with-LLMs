@@ -21,7 +21,7 @@ def get_data_files(data_path, T):
 
     patterns = [
         re.compile( r"^(.+)_MAX([A-Z0-9]+)_(.+)\.jsonl$"),
-        re.compile(rf"^(.+)_MAX([A-Z0-9]+)_YAKE_{T}\.jsonl$"),
+        re.compile(rf"^(.+)_MAX([A-Z0-9]+)_YAKE\.jsonl$"),
         re.compile(rf"^(.+)_MAX([A-Z0-9]+)_TopicRank\.jsonl$")
     ]
 
@@ -193,11 +193,11 @@ if __name__ == '__main__':
     prompt_template = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{} <|eot_id|><|start_header_id|>user<|end_header_id|>\n\nText: {}<|eot_id|>"
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="Llama3 path")
+    parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="LLM path")
     parser.add_argument('--data_path', type=str, default='data/processed', help="Directory path of test datasets")
     parser.add_argument('--max_new_tokens', type=str, default='64', help="Maximum number of tokens to generate")
-    parser.add_argument('--auth_token', type=str, default='', help="Authentication token for Llama")
-    parser.add_argument('--T', type=str, default='10', help="Number of keywords to extract")
+    parser.add_argument('--auth_token', type=str, default='', help="Authentication token")
+    parser.add_argument('--T', type=str, default='10', help="Number of keyphrases to extract")
     parser.add_argument('--datasets_max_len', type=str, default='FULL', help="Maximum length of test datasets")
     parser.add_argument('--gpu_memory_utilization', type=str, default='0.85', help="Fraction of GPU VRAM vLLM is allowed to claim")
     parser.add_argument('--engine_group_tolerance', type=str, default='0.15',

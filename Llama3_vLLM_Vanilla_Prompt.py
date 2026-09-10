@@ -48,7 +48,7 @@ def compute_document_lengths(tokenizer, data_list):
     symbols) for every document in the dataset. Returns a list of lengths
     aligned with data_list.
     """
-    return [tokenized_len(tokenizer, j_data['doc']) for j_data in data_list]
+    return [tokenized_len(tokenizer, j_data['doc']) for j_data in data_list] # e.g. [1078, 3067, 8067, ..., 5078]
 
 
 def truncate_documents(tokenizer, data_list, doc_lengths, budget):
@@ -62,12 +62,12 @@ def truncate_documents(tokenizer, data_list, doc_lengths, budget):
     """
     prepared = []
 
-    for j_data, length in zip(data_list, doc_lengths):
+    for j_data, length in zip(data_list, doc_lengths): # {data_list} and {doc_lengths} are aligned
 
-        if length > budget:
-            token_ids = tokenizer(j_data['doc'], add_special_tokens=False)["input_ids"]
-            truncated_ids = token_ids[:budget]
-            truncated_text = tokenizer.decode(truncated_ids)
+        if length > budget: # If the length of the document is greater than the budget ...
+            token_ids = tokenizer(j_data['doc'], add_special_tokens=False)["input_ids"] # Get the token IDs of the entire document
+            truncated_ids = token_ids[:budget] # Truncate/slice the token IDs to {budget} 
+            truncated_text = tokenizer.decode(truncated_ids) # Convert sliced/truncated token IDs back to human readable text
             was_truncated = True
         else:
             truncated_text = j_data['doc']
@@ -87,12 +87,11 @@ if __name__ == '__main__':
 
     prompt_template = "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{} <|eot_id|><|start_header_id|>user<|end_header_id|>\n\nText: {}<|eot_id|>"
                       
-
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="Llama3 path")
+    parser.add_argument('--model_name', type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', help="LLM path")
     parser.add_argument('--data_path', type=str, default='data/processed', help="Directory path of test datasets")
     parser.add_argument('--max_new_tokens', type=str, default='64', help="Maximum number of tokens to generate")
-    parser.add_argument('--auth_token', type=str, default='', help="Authentication token for Llama")
+    parser.add_argument('--auth_token', type=str, default='', help="Authentication token")
     parser.add_argument('--T', type=str, default='10', help="Number of keyphrases to extract")
 
     parser.add_argument('--datasets_max_len', type=str, default='FULL',
@@ -129,7 +128,7 @@ if __name__ == '__main__':
     sampling_params = SamplingParams(
         temperature=0,
         max_tokens=max_new_tokens,
-        stop=["<|eot_id|>"] # The final string segment in prompt_template that signals the end of the entire prompt
+        stop=["<|eot_id|>"] # The final string segment in {prompt_template} that signals the end of the entire prompt
     )
 
     settings = {
@@ -150,7 +149,7 @@ if __name__ == '__main__':
 
     result_path = os.path.join(
         'results',
-        f"Llama3vLLM/Llama3vLLM_T{T}",
+        f"Llama3vLLM/Llama3vLLM",
         f'{timestamp}_vllm_vanilla_{datasets_max_len_raw}'
     )
 
@@ -197,7 +196,7 @@ if __name__ == '__main__':
             budget = int(math.ceil(chosen_len))
 
         prepared_docs = truncate_documents(tokenizer, data_list, doc_lengths, budget)
-        num_truncated = sum(1 for d in prepared_docs if d["was_truncated"])
+        num_truncated = sum(1 for d in prepared_docs if d["was_truncated"]) # How many documents were truncated/sliced
 
         max_model_len = prompt_overhead_tokens + budget
 
@@ -225,7 +224,7 @@ if __name__ == '__main__':
         outputs = llm.generate(prompts, sampling_params)
 
         output_list = []
-        for prepared, output in zip(prepared_docs, outputs):
+        for prepared, output in zip(prepared_docs, outputs): # {prepared_docs} and {outputs} are aligned. For each {prepared} document there is a generated answer {output}
             j_data = prepared["j_data"]
 
             generated_output_str = output.outputs[0].text.strip()
@@ -272,7 +271,7 @@ if __name__ == '__main__':
                 f.write(json.dumps(json_data, ensure_ascii=False) + '\n')
 
         stats = {
-            "KE": f"Llama3vLLM_T{T}",
+            "KE": f"Llama3vLLM",
             "Dataset": dataset_name,
             "T": T,
             "Timestamp": timestamp,

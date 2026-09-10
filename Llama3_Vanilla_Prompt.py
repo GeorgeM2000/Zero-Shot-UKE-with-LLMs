@@ -52,8 +52,9 @@ tokenizer(prompt, max_length=4096, truncation=True)
 
 
 def get_generated_output(str):
-    # By splitting {str} like this (.split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>')), 
-    # which is the answer of the LLM, you get this text: "\n\nText: {}<|eot_id|>". "Text: {}" contains the generated answer.
+    # By splitting {str} like this: .split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>'), 
+    # you get the following text as a result: "\n\nText: {}<|eot_id|>". "Text: {}" contains the generated answer.
+    # {str} represents the entire answer of the LLM.
 
     split_prompt_output = str.split('<|eot_id|><|start_header_id|>assistant<|end_header_id|>') 
     return split_prompt_output[-1].strip().replace("<|eot_id|>", "") 
