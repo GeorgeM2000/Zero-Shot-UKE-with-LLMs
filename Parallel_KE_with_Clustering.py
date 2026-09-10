@@ -362,7 +362,7 @@ if __name__ == '__main__':
             "Dataset": dataset_name,
             "Timestamp": timestamp,
             "Datasets_Max_Length": datasets_max_len,
-            "Category": "C",
+            "Category": "D",
 
             "Runtime": {
                 "Per_Document": {

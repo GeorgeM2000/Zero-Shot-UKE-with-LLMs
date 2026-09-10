@@ -54,7 +54,7 @@ TARGET_MAX_LEN = "FULL"
 # their "Category" field (present in every evaluation.json) and groups are
 # listed in this order. Order of KE methods *within* a group does not
 # matter (alphabetical). Must contain every category value in your files.
-GROUP_ORDER = ["A", "B", "C", "D", "E", "F"]
+GROUP_ORDER = ["A", "C", "E", "F", "G", "H"]
 
 
 # Known dataset names, in the order you want them to appear as columns.

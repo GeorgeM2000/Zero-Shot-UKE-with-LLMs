@@ -96,9 +96,9 @@ GROUP_ORDER = ["A", "B", "C", "D", "E", "F", "G", "H"]
 # in normal mode. The second primary category corresponds to the same LLMs
 # evaluated in vLLM mode.
 
-PRIMARY_CATEGORY_OPTIONS = ["A", "B"]
+PRIMARY_CATEGORY_OPTIONS = ["G", "H"]
 PRIMARY_CATEGORY = None
-SECONDARY_CATEGORIES = ["C", "D"] # The secondary categories DON'T change 
+SECONDARY_CATEGORIES = ["B", "D"] # The secondary categories DON'T change 
 
 
 # Just in case you add Gemma to the evaluation

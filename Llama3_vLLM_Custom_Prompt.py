@@ -478,7 +478,7 @@ if __name__ == '__main__':
                 "Budget": budget,
                 "Max_Model_Len": max_model_len,
                 "Engine_Max_Model_Len": engine_max_model_len,
-                "Category": "F",
+                "Category": "H",
 
                 "Runtime": {
                     "Per_Document": {
