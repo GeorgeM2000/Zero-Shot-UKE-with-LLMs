@@ -122,6 +122,7 @@ def find_stats_files(root_folder, target_max_len):
     Returns a de-duplicated, sorted list of absolute paths."""
 
     found = set() # set() is used so that there are no duplicate stat files
+    ke_dir_paths = set() # Directories where *_stats.json files are located
     skipped_count = 0
     for dirpath, _dirnames, filenames in os.walk(root_folder):
         parent_folder_name = os.path.basename(dirpath)
@@ -135,12 +136,13 @@ def find_stats_files(root_folder, target_max_len):
                 full_path = os.path.abspath(os.path.join(dirpath, fname))
                 real_path = os.path.realpath(full_path)  # resolve symlinks
                 found.add(real_path)
+                ke_dir_paths.add(os.path.abspath(dirpath))
 
     if skipped_count:
         print(f"Skipped {skipped_count} '*{FILENAME_SUFFIX}' file(s) whose parent "
               f"folder name did not contain '{target_max_len}'.")
         
-    return sorted(found)
+    return sorted(found), ke_dir_paths
 
 
 def get_nested(d, dotted_path):
@@ -251,7 +253,7 @@ def main():
     if not os.path.isdir(INPUT_FOLDER):
         raise SystemExit(f"INPUT_FOLDER does not exist or is not a directory: {INPUT_FOLDER}")
 
-    stats_files = find_stats_files(INPUT_FOLDER, TARGET_MAX_LEN)
+    stats_files, ke_dir_paths = find_stats_files(INPUT_FOLDER, TARGET_MAX_LEN)
     print(f"Found {len(stats_files)} '*{FILENAME_SUFFIX}' file(s) matching "
           f"TARGET_MAX_LEN='{TARGET_MAX_LEN}'.")
 
@@ -260,6 +262,10 @@ def main():
         print(path)
 
     print()
+
+    with open("KE_Directories.txt", "w", encoding="utf-8") as f:
+        for path in ke_dir_paths:
+            f.write(f"{path}\n")
 
     # data[ke_method][dataset] = raw json dict
     data = {}
